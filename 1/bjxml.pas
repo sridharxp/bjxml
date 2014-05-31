@@ -1,4 +1,4 @@
-{************************************************************
+{ ************************************************************
 
  SimpleXML - By Michael Vlasov. Library for XML parsing and convertion to
    XML objects hierarchy and vise versa. Worthy replacement for MSXML.
@@ -27,18 +27,8 @@
    24-Dec-2009 so - Improved performance for parsing
    27-Dec-2009 so - Improved performance for hash and save
    03-Jan-2010 so - Minor bugs in russian error messages fixed
-   14-Apr-2010 so - ExchangeChilds added                           06-Dec-2010 so - Minor Changes in error messages
-   16-Apr-2012 so - BOM support added
-   16-Jul-2012 so - Error message in the case of 4-Byte-Unicode (not supported)
-   12-Nov-2012 vz - Reformed logic saved long attributes - thanks to Vadim Zharkov
-   23-Nov-2012 so - It is not possible to copy aNode from one Doc to another
-   23-Feb-2013 so - Bug in Get_Text
-   24-Mar-2013 lg - Some new features - thanks to Lukas Gebauer
-                  - Ansi-version can use UTF8-Strings (see XMLDefaultcodepage)
-                  - Error messages with line and columne numbers
-                  - OnTagBegin/OnTagEnd-Events
-                  - 4 Byte-UTF8-Decoding
-   03-Apr-2013 vb - DateTime strings are now somewhat more W3C compliant - thanks to Vladimir Belyaev   -----------------------------------------------------------------------------------------------
+
+   -----------------------------------------------------------------------------------------------
 
  (c) Copyrights 2009 Samuel Soldat.
 
@@ -87,13 +77,14 @@
               *        Sridharan S       <aurosridhar@gmail.com>            *
               *                                                                   *
               *********************************************************************
+Kept for archival purpose only.
 }
-unit bjxml2;
+unit bjXml;
 
 interface
 
 uses
-  SysUtils, Types, Windows, Classes, Dialogs;
+  Types, Windows, Classes, Dialogs;
 {$IF CompilerVersion>=18}{$DEFINE Regions}{$IFEND}
 {$IFDEF Regions}{$REGION 'Constantes Declaration'}{$ENDIF}
 const
@@ -103,7 +94,6 @@ const
   BINXML_USE_WIDE_CHARS = 1;
   BINXML_COMPRESSED = 2;
   DefaultHashSize = 1009;
-AnsiCodepage = CP_UTF8;  // set CP_UTF8 if you want to use UTF8-encoded AnsiStrings
 
   XSTR_NULL = '{{null}}';
 
@@ -181,9 +171,6 @@ type
 
   TbjXml = class;
   TbjXmlNodeList = class;
-
-  THookTag = procedure(Sender: TObject; aNode: IbjXml) of object;
-
   IbjXml = interface(IbjXmlBase)
 //  IbjXmlNode = interface(IbjXmlBase)
     function Get_NameTable: IbjXmlNameTable;
@@ -214,9 +201,7 @@ type
     procedure InsertBefore(const aChild, aBefore: IbjXml);
     procedure ReplaceChild(const aNewChild, anOldChild: IbjXml);
     procedure RemoveChild(const aChild: IbjXml);
-    // ExchangeChild - Change node order
-    procedure ExchangeChilds(const aChild1, aChild2: IbjXml);
-   
+
     // created an element and add it to the end of the list as child node
     function AppendElement(aNameID: NativeInt): IbjXmlElement; overload;
     function AppendElement(const aName: TbjXmlString): IbjXmlElement; overload;
@@ -303,10 +288,6 @@ type
     procedure SetAttr(aNameID: NativeInt; const aValue: TbjXmlString); overload;
     procedure SetAttr(const aName, aValue: TbjXmlString); overload;
 
-    // GetBytesAttr - return attribut as raw data 
-    function GetBytesAttr(aNameID: NativeInt; const aDefault: TBytes = nil): TBytes; overload;
-    function GetBytesAttr(const aName: TbjXmlString; const aDefault: TBytes = nil): TBytes; overload;
-
     // GetBoolAttr - возвращает целочисленное значение указанного атрибута
     // SetBoolAttr - изменяет или добавляет указанный атрибут целочисленным
     //  значением
@@ -384,10 +365,6 @@ type
     function Get_BinaryXML: RawByteString;
     function Get_PreserveWhiteSpace: Boolean;
     procedure Set_PreserveWhiteSpace(aValue: Boolean);
-    function Get_OnTagEnd: THookTag;
-    procedure Set_OnTagEnd(aValue: THookTag);
-    function Get_OnTagBegin: THookTag;
-    procedure Set_OnTagBegin(aValue: THookTag);
 
     function NewDocument(const aVersion, anEncoding: TbjXmlString;
       aRootElementNameID: NativeInt): IbjXmlElement; overload;
@@ -437,9 +414,6 @@ type
     property PreserveWhiteSpace: Boolean read Get_PreserveWhiteSpace write Set_PreserveWhiteSpace;
     property DocumentElement: IbjXmlElement read Get_DocumentElement;
     property BinaryXML: RawByteString read Get_BinaryXML;
-    property OnTagBegin: THookTag read Get_OnTagBegin write Set_OnTagBegin;
-    property OnTagEnd: THookTag read Get_OnTagEnd write Set_OnTagEnd;
-
 //    property NodeName: TbjXmlString read Get_NodeName;
 //    property Tag: TbjXmlString read Get_NodeName;
     property Tag: TbjXmlString read GetTag;
@@ -648,8 +622,6 @@ type
     FRemainSize: Integer;
     FCodepage: Word;
     FStreamOwner: Boolean;
-    FSourceLine: Int64;
-    FSourceCol: Int64;
     function ExpectQuotedText(aQuote: TbjXmlChar): TbjXmlString;
   protected
   public
@@ -723,7 +695,7 @@ type
     destructor Destroy; override;
 
     function IndexOf(aNode: TbjXml): Integer;
-    procedure ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable; aPreserveWhiteSpace: Boolean; HookTagEnd: THookTag; HookTagBegin: THookTag);
+    procedure ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable; aPreserveWhiteSpace: Boolean);
     procedure SaveXML(aXML: TbjXmlSaver);
 
     procedure LoadBinXml(aReader: TBinXmlReader; aCount: Integer; aNames: TbjXmlNameTable);
@@ -758,8 +730,6 @@ type
     {$ENDIF}
 
     FPreserveWhiteSpace: Boolean;
-    FOnTagEnd: THookTag;
-    FOnTagBegin: THookTag;
     FisDocument: boolean;
 
     function FindFirstChild(aNameID: NativeInt): TbjXml;
@@ -813,7 +783,6 @@ type
 
     procedure InsertBefore(const aChild, aBefore: IbjXml);
     procedure ReplaceChild(const aNewChild, anOldChild: IbjXml);
-    procedure ExchangeChilds(const aChild1, aChild2: IbjXml);
     procedure RemoveChild(const aChild: IbjXml);
     function GetChildText(const aName: TbjXmlString; const aDefault: TbjXmlString = ''): TbjXmlString; overload;
     function GetChildText(aNameID: NativeInt; const aDefault: TbjXmlString = ''): TbjXmlString; overload;
@@ -859,9 +828,6 @@ type
     function GetAttrValue(const aName: TbjXmlString): TbjXmlString;
     procedure SetAttr(aNameID: NativeInt; const aValue: TbjXmlString); overload;
     procedure SetAttr(const aName, aValue: TbjXmlString); overload;
-
-    function GetBytesAttr(aNameID: NativeInt; const aDefault: TBytes = nil): TBytes; overload;
-    function GetBytesAttr(const aName: TbjXmlString; const aDefault: TBytes = nil): TBytes; overload;
 
     function GetBoolAttr(aNameID: NativeInt; aDefault: Boolean = False): Boolean; overload;
     function GetBoolAttr(const aName: TbjXmlString; aDefault: Boolean = False): Boolean; overload;
@@ -914,10 +880,6 @@ type
 //    procedure SaveXML(aXMLSaver: TbjXmlSaver); override;
     function Get_PreserveWhiteSpace: Boolean;
     procedure Set_PreserveWhiteSpace(aValue: Boolean);
-    function Get_OnTagEnd: THookTag;
-    procedure Set_OnTagEnd(aValue: THookTag);
-    function Get_OnTagBegin: THookTag;
-    procedure Set_OnTagBegin(aValue: THookTag);
 
     function NewDocument(const aVersion, anEncoding: TbjXmlString;
       aRootElementNameID: NativeInt): IbjXmlElement; overload;
@@ -1111,16 +1073,13 @@ var
 //  DefaultIndentText: TbjXmlString = #9;
   DefaultIndentText: TbjXmlString = '    ';
   XMLPathDelimiter: TbjXmlString = '\';
-  {$if not Defined(XML_WIDE_CHARS) and not Defined(Unicode)}
-  XMLCodepage: Word = AnsiCodepage;  //Codepage used for TXmlString
-  {$ifend}
 
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 {$IFDEF Regions}{$REGION 'Helper Functions'}{$ENDIF}
 function XSTRToFloat(const s: TbjXmlString): Double;
 function FloatToXSTR(v: Double): TbjXmlString;
 function DateTimeToXSTR(v: TDateTime): TbjXmlString;
-function XSTRToDateTime(const s: String): TDateTime;function VarToXSTR(const v: TVarData): TbjXmlString;
+function VarToXSTR(const v: TVarData): TbjXmlString;
 
 function TextToXML(const aText: TbjXmlString): TbjXmlString;
 function BinToBase64(const aBin; aSize: Integer; aMaxLineLength: Integer=80): TbjXmlString;
@@ -1140,34 +1099,38 @@ function RHopNode(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
 implementation
 
 uses
-  SysConst,  Variants, DateUtils;
+  SysConst, SysUtils, Variants, DateUtils;
 
 {$IFDEF Regions}{$REGION 'Error Messages'}{$ENDIF}
 resourcestring
   {$IFDEF English}
-  SSimpleXmlError1 = 'Failed to get list item: Index %d out of range';
-  SSimpleXmlError2 = 'Incomplete definition of the element';  
-SSimpleXmlError3 = 'Invalid symbol in the name of the element';
-  SSimpleXmlError4 = 'Error reading binary XML: incorrect node-type';      SSimpleXmlError5 = 'Error writing binary XML: incorrect node-type';
-SSimpleXmlError6 = 'Incorrect value of the attribute "%0:s" at element "%1:s".'#13#10 +
+  SSimpleXmlError1 = 'Error obtaining the element the list: Index out of range';
+  SSimpleXmlError2 = 'The determination of the element is not completed';
+  SSimpleXmlError3 = 'Invalid symbol in the name of the element';
+  SSimpleXmlError4 = 'Error of reading binary XML: incorrect node-type';
+  SSimpleXmlError5 = 'Error of the record of binary XML: incorrect node-type';
+  SSimpleXmlError6 = 'Incorrect value of the attribute "%0:s" at element "%1:s".'#13#10 +
                      'Allowed values are: '#13#10 + '%2:s';
   SSimpleXmlError7 = 'Attribute "%s" not found';
   SSimpleXmlError8 = 'Attribute "%s" not assigned';
   SSimpleXmlError9 = 'This feature is not supported by SimpleXML';
   SSimpleXmlError10 = 'Error: Child node "%s" not found';
-  SSimpleXmlError11 = 'Name must start with letter or "_" at [%d:%d]';    SSimpleXmlError12 = 'Number expected at [%d:%d]';
-  SSimpleXmlError13 = 'Hexadecimal number expected at [%d:%d]';    SSimpleXmlError14 = '"#" or XML entity symbol name expected at [%d:%d]';    SSimpleXmlError15 = 'Unknown XML entity symbol name "%s" found at [%d:%d]';      SSimpleXmlError16 = 'Character "%s" expected at [%d:%d]';
-  SSimpleXmlError17 = 'Text "%s" expected at [%d:%d]';  
-  SSimpleXmlError18 = 'Character "<" cannot be used in the values of attributes at [%d:%d]';  
-  SSimpleXmlError19 = '"%s" expected at [%d:%d]';  
-  SSimpleXmlError20 = 'The value of the attribute is expected at [%d:d]';
-  SSimpleXmlError21 = 'Line constant expected at [%d:%d]';
-  SSimpleXmlError22 = '"%s" expected at [%d:%d]';  
-SSimpleXmlError23 = 'Error reading data';
+  SSimpleXmlError11 = 'Name must start with letter or " _"';
+  SSimpleXmlError12 = 'Number expected';
+  SSimpleXmlError13 = 'Hexadecimal number expected';
+  SSimpleXmlError14 = '"#" or XML entity symbol name expected';
+  SSimpleXmlError15 = 'Unknown XML entity symbol name "%s" found';
+  SSimpleXmlError16 = 'Character "%s" expected';
+  SSimpleXmlError17 = 'Text "%s" expected';
+  SSimpleXmlError18 = 'Character "<" cannot be used in the values of attributes';
+  SSimpleXmlError19 = '"%s" expected';
+  SSimpleXmlError20 = 'The value of the attribute is expected';
+  SSimpleXmlError21 = 'Line constant expected';
+  SSimpleXmlError22 = '"%s" expected';
+  SSimpleXmlError23 = 'Error reading data';
   SSimpleXmlError24 = 'Error reading value: incorrect type';
   SSimpleXmlError25 = 'Unknown data type in variant';
   SSimpleXmlError26 = 'Encoding "%s" is not supported by SimpleXML';
-  SSimpleXmlError27 = 'Unicode Encoding is not supported by bjXML';
   {$ELSE}
   {$IF CompilerVersion>=18}
   SSimpleXmlError1 = 'Ошибка получения элемента списка: индекс выходит за пределы';
@@ -1204,7 +1167,7 @@ SSimpleXmlError23 = 'Error reading data';
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 {$IFDEF Regions}{$REGION 'Codepage Support'}{$ENDIF}
 const
-  XMLEncodingData: Array [0..22] of
+  XMLEncodingData: Array [0..19] of 
       record
         Encoding: TbjXmlString;
         CodePage: Word;
@@ -1227,10 +1190,7 @@ const
              (Encoding: 'ISO-8859-7';   CodePage: 28597),
              (Encoding: 'ISO-8859-8';   CodePage: 28598),
              (Encoding: 'ISO-8859-9';   CodePage: 28599),
-             (Encoding: 'ISO-8859-13';  CodePage: 28603),
-             (Encoding: 'ISO-8859-15';  CodePage: 28605),
-             (Encoding: 'KOI8-R';       CodePage: 20866),
-             (Encoding: 'KOI8-U';       CodePage: 21866));
+             (Encoding: 'ISO-2022-JP';  CodePage: 50220));
   
 function FindCodepage(const s: TbjXmlString): Word;
 var 
@@ -1249,8 +1209,6 @@ end;
 
 function Utf8ToUnicode(Dest: PWideChar; MaxDestChars: Integer; Source: PByte; var SourceBytes: Integer): Integer;
 //After call SourceBytes is the number of bytes not transfered to dest
-var
-  uc: UCS4Char;
 begin
   Result := 0;
   if (Source <> nil) and (Dest <> nil)
@@ -1258,13 +1216,13 @@ begin
     while (SourceBytes>0) and (Result < MaxDestChars) do
     begin
       if (Source^ and $80=0)
-      then begin //1 Byte Source -> 7 Bit Unicode Char
-Dest^ := WideChar(Source^);
+      then begin //1 Byte Source
+        Dest^ := WideChar(Source^);
       end
       else
       if (Source^ and $E0=$C0)
-      then begin //2 Byte Source -> 11 Bit Unicode Char
-if (SourceBytes>=2)
+      then begin //2 Byte Source
+        if (SourceBytes>=2)
         then begin
           Dest^ := WideChar((Word(Source^) and $1F) shl 6); inc(Source);
           Dest^ := WideChar(Word(Dest^) or Word(Source^) and $3F);
@@ -1274,42 +1232,15 @@ if (SourceBytes>=2)
           break;
       end
       else
-      if (Source^ and $F0=$E0)
-      then begin //3 Byte Source -> 16 Bit Unicode Char
+      if (Source^ and $F0=$E0) and (SourceBytes>2)
+      then begin //3 Byte Source
         if (SourceBytes>=3)
         then begin
           Dest^ := WideChar((Word(Source^) and $F) shl 12); inc(Source);
           Dest^ := WideChar(Word(Dest^) or (Word(Source^) and $3F) shl 6); inc(Source);
           Dest^ := WideChar(Word(Dest^) or (Word(Source^) and $3F));
           dec(SourceBytes, 2);
-        end
-       else
-          break;
-      end
-      else
-      if (Source^ and $F8=$F0)
-      then begin //4 Byte Source -> 21 Bit Unicode Char
-        if (SourceBytes>=4) and ((Result + 1) < MaxDestChars)
-        then begin
-          //get UCS4 char...
-          uc := (UCS4Char(Source^) and $8) shl 18; inc(Source);
-          uc := uc or ((UCS4Char(Source^) and $3F) shl 12); inc(Source);
-          uc := uc or ((UCS4Char(Source^) and $3F) shl 6); inc(Source);
-          uc := uc or (UCS4Char(Source^) and $3F);
-          dec(SourceBytes, 3);
-          if (uc > $10FFFF) or ((uc >= $D800) and (uc <= $DFFF)) then
-            Dest^ := WideChar('?') //invalid value!
-          else begin
-            //...and create surrogate pair of two WideChars
-            dec(uc, $10000);
-            Dest^ := WideChar(uc div $400 + $D800);
-            inc(Dest);
-            inc(Result);
-            Dest^ := WideChar(uc mod $400 + $DC00);
-          end;
-        end
-        else
-          break;
+        end;
       end;
       inc(Source);
       dec(SourceBytes);
@@ -1422,8 +1353,8 @@ var
 begin
   aPos := 1;
   y := FetchTo('-'); m := FetchTo('-'); d := FetchTo('T');
-  h := FetchTo(':'); n := FetchTo(':'); ss := FetchTo(#0);  
-Result := EncodeDateTime(y, m, d, h, n, ss, 0);
+  h := FetchTo('-'); n := FetchTo('-'); ss := FetchTo('-');
+  Result := EncodeDateTime(y, m, d, h, n, ss, 0);
 end;
 
 function DateTimeToXSTR(v: TDateTime): TbjXmlString;
@@ -1905,18 +1836,15 @@ procedure TbjXmlNodeList.Exchange(Index1, Index2: Integer);
 var
   Temp: TbjXml;
 begin
-  if (Index1>=0) and (Index2>=0)
-  then begin
-    Temp := FItems[Index1];
-    FItems[Index1] := FItems[Index2];
-    FItems[Index2] := Temp;
-  end;
+  Temp := FItems[Index1];
+  FItems[Index1] := FItems[Index2];
+  FItems[Index2] := Temp;
 end;
 
 function TbjXmlNodeList.Get_Item(anIndex: Integer): IbjXml;
 begin
   if (anIndex < 0) or (anIndex >= FCount) then
-    raise Exception.CreateFmt(SSimpleXmlError1, [anIndex]);
+    raise Exception.Create(SSimpleXmlError1);
   Result := FItems[anIndex];
 end;
 
@@ -1952,18 +1880,20 @@ begin
 end;
 
 procedure TbjXmlNodeList.Insert(aNode: TbjXml; anIndex: Integer);
+var
+  aClone: IbjXml;
 begin
   if aNode <> nil
   then begin
     if ((aNode.FParentNode<>nil) and (aNode.FParentNode <> FOwnerNode)) or
        ((FOwnerNode<>nil) and (FOwnerNode.FNames<>aNode.FNames))
     then begin
-      aNode := aNode.DoCloneNode(True).GetObject as TbjXml;
-      if FOwnerNode<>nil            
-then
-        aNode.SetNameTable(FOwnerNode.FNames);
-    end;
-    aNode._AddRef;
+      aClone := aNode.DoCloneNode(True);
+      aNode := aClone.GetObject as TbjXml;
+      aNode.SetNameTable(FOwnerNode.FNames);
+    end
+    else
+      aNode._AddRef;
     aNode.FParentNode := FOwnerNode;
   end;
   if anIndex = -1 then
@@ -2023,7 +1953,7 @@ begin
     Result := Result + FItems[i].Get_XML;
 end;
 
-procedure TbjXmlNodeList.ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable; aPreserveWhiteSpace: Boolean; HookTagEnd: THookTag; HookTagBegin: THookTag);
+procedure TbjXmlNodeList.ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable; aPreserveWhiteSpace: Boolean);
 
   procedure ParseText;
   var
@@ -2042,7 +1972,7 @@ procedure TbjXmlNodeList.ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable; a
       aText := aXml.AcceptToken
     else
       aText := Trim(aXml.AcceptToken);
-    if (aText<>'')
+    if (aText<>'') 
     then
       Insert(TbjXmlText.Create(aNames, aText), -1);
   end;
@@ -2121,19 +2051,16 @@ procedure TbjXmlNodeList.ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable; a
     aNode := TbjXmlElement.Create(aNames, aNameID);
     Insert(aNode, -1);
     aXml.ParseAttrs(aNode);
-    if assigned(HookTagBegin) then
-      HookTagBegin(Self, aNode);
     if aXml.CurChar = '/' then
       aXml.ExpectText('/>')
     else begin
       aXml.ExpectChar('>');
-      aNode.GetChilds.ParseXML(aXml, aNames, aPreserveWhiteSpace, HookTagEnd, HooktagBegin);      aXml.ExpectChar('/');
+      aNode.Get_Childs.ParseXML(aXml, aNames, aPreserveWhiteSpace);
+      aXml.ExpectChar('/');
       aXml.ExpectText(PbjXmlChar(aNames.GetName(aNameID)));
       aXml.SkipBlanks;
       aXml.ExpectChar('>');
     end;
-    if assigned(HookTagEnd) then
-      HookTagEnd(Self, aNode);
   end;
 
 begin
@@ -2144,7 +2071,7 @@ begin
     then begin// символ разметки
       if aXML.Next
       then begin
-        if aXML.CurChar = '/'
+        if aXML.CurChar = '/' 
         then // закрывающий тэг элемента
           Exit
         else 
@@ -2401,40 +2328,6 @@ end;
 function TbjXml.GetBoolAttr(const aName: TbjXmlString; aDefault: Boolean): Boolean;
 begin
   Result := GetBoolAttr(FNames.GetID(aName), aDefault)
-end;
-
-procedure CopyWordToByteArray(s: PWord; d: PByte; Size: Integer);
-begin
-  while Size>0 do
-  begin
-    d^ := PByte(s)^;
-    inc(s); inc(d); dec(Size);
-  end;
-end;
-
-function TbjXml.GetBytesAttr(aNameID: NativeInt; const aDefault: TBytes): TBytes;
-var
-  aData: PXmlAttrData;
-  temp: TbjXmlString;
-begin
-  aData := FindAttrData(aNameID);
-  if Assigned(aData)
-  then begin
-    temp := aData.Value;
-    SetLength(Result, Length(temp));
-    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)}
-    CopyWordToByteArray(Pointer(temp), Pointer(Result), Length(Result));
-    {$ELSE}
-    move(Pointer(temp)^, Pointer(Result)^, Length(Result));
-    {$IFEND}
-  end
-  else
-    Result := aDefault
-end;
-
-function TbjXml.GetBytesAttr(const aName: TbjXmlString; const aDefault: TBytes): TBytes;
-begin
-  Result := GetBytesAttr(FNames.GetID(aName), aDefault);
 end;
 
 function TbjXml.FindFirstChild(aNameID: NativeInt): TbjXml;
@@ -2871,7 +2764,7 @@ var
 begin
   if IsName(anExpression)
   then begin
-    aNodes := TbjXmlNodeList.Create(Self);
+    aNodes := TbjXmlNodeList.Create(nil);
     Result := aNodes;
     aChilds := Get_Childs;
     aNameID := FNames.GetID(anExpression);
@@ -3097,15 +2990,12 @@ function TbjXml.FindAttrData(aNameID: NativeInt): PXmlAttrData;
 var
   i: Integer;
 begin
-  if Length(FAttrs)>0
-  then begin
-    Result := @FAttrs[0];
-    for i := 0 to FAttrCount - 1 do
-      if Result.NameID = aNameID then
-        Exit
-      else
-        Inc(Result);
-  end;
+  Result := @FAttrs[0];
+  for i := 0 to FAttrCount - 1 do
+    if Result.NameID = aNameID then
+      Exit
+    else
+      Inc(Result);
   Result := nil;
 end;
 
@@ -3393,18 +3283,6 @@ begin
   Result := EnsureChild(FNames.GetID(aName))
 end;
 
-procedure TbjXml.ExchangeChilds(const aChild1, aChild2: IbjXml);
-var
-  i1, i2: Integer;
-  aChilds: TbjXmlNodeList;
-begin
-  aChilds := GetChilds;
-  i1 := aChilds.IndexOf(aChild1.GetObject as TbjXml);
-  i2 := aChilds.IndexOf(aChild2.GetObject as TbjXml);
-  if (i1 <> -1) and (i2 <> -1) then
-    aChilds.Exchange(i1, i2);
-end;
-
 function TbjXml.NeedChild(aNameID: NativeInt): IbjXml;
 var
   aChild: TbjXml;
@@ -3485,11 +3363,10 @@ var
 begin
   Result := '';
   aChilds := FChilds;
-  if Assigned(aChilds) and (aChilds.FCount>0)
+  if Assigned(aChilds)
   then begin
-    for i := 0 to aChilds.FCount - 1 do
-   begin 
-     aChild := aChilds.FItems[i];
+    for i := 0 to aChilds.FCount - 1 do begin
+      aChild := aChilds.FItems[i];
       if (aChild.ClassType=TbjXmlText) or (aChild.ClassType=TbjXmlCDATASection)//or (aChild.ClassType=TbjXmlElement)
       then begin
         aChildText := aChild.Get_Text;
@@ -3747,11 +3624,9 @@ begin
   aClone.FAttrCount := FAttrCount;
   for i := 0 to FAttrCount - 1 do
     aClone.FAttrs[i] := FAttrs[i];
-  if aDeep and Assigned(FChilds) and (FChilds.FCount > 0)
-  then begin
+  if aDeep and Assigned(FChilds) and (FChilds.FCount > 0) then
     for i := 0 to FChilds.FCount - 1 do
       aClone.AppendChild(FChilds.FItems[i].CloneNode(True));
-end;
 end;
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 {$IFDEF Regions}{$REGION 'TbjXmlCharacterData Implementation'}{$ENDIF}
@@ -3999,24 +3874,6 @@ begin
   Result := FNames.FXmlDocumentNameID
 end;
 
-function TbjXml.Get_OnTagBegin: THookTag;
-begin
-  if Self<>nil
-  then
-    Result := FOnTagBegin
-  else
-    Result := nil;
-end;
-
-function TbjXml.Get_OnTagEnd: THookTag;
-begin
-  if Self<>nil
-  then
-    Result := FOnTagEnd
-  else
-    Result := nil;
-end;
-
 function TbjXml.Get_PreserveWhiteSpace: Boolean;
 begin
   if Self<>nil
@@ -4074,9 +3931,6 @@ var
   aXml: TbjXmlSource;
   aBinarySign: AnsiString;
   aReader: TBinXmlReader;
-  Bom: array [0..3] of Byte;
-  BomLen: Integer;
-  BomType: (btNone, btUTF16BE, btUTF16LE, btUTF32BE, btUTF32LE, btUTF8);
 begin
   RemoveAllChilds;
   RemoveAllAttrs;
@@ -4097,51 +3951,9 @@ begin
     end;
     aStream.Position := aStream.Position - BinXmlSignatureSize;
   end;
-  if aStream.Size > Length(Bom)
-  then begin
-    aStream.ReadBuffer(Bom, Length(Bom));
-    aStream.Seek(-Length(Bom), soFromCurrent);
-    if PDWord(@Bom)^=$FFFE0000
-    then begin
-      BomType := btUTF32BE;
-      BomLen := 4;
-    end
-    else
-    if PDWord(@Bom)^=$0000FEFF
-    then begin
-      BomType := btUTF32LE;
-      BomLen := 4;
-    end
-    else
-    if PWord(@Bom)^=$FEFF
-    then begin
-      BomType := btUTF16LE;
-      BomLen := 2;
-    end
-    else
-    if PWord(@Bom)^=$FFFE
-    then begin
-      BomType := btUTF16BE;
-      BomLen := 2;
-    end
-    else
-    if (Bom[0]=$EF) and (Bom[1]=$BB) and (Bom[2]=$BF)
-    then begin
-      BomType := btUTF8;
-      BomLen := 3;
-    end
-    else begin
-      BomType := btNone;
-      BomLen := 0;
-    end;
-    if not (BomType in [btNone, btUTF8])
-    then
-      raise Exception.Create(SSimpleXmlError27);
-    aStream.Seek(BomLen, soFromCurrent);
-  end;
   aXml := TbjXmlSource.Create(aStream);
   try
-    GetChilds.ParseXML(aXml, FNames, FPreserveWhiteSpace, FOnTagEnd, FOnTagBegin);
+    Get_Childs.ParseXML(aXml, FNames, FPreserveWhiteSpace);
   finally
     aXml.Free
   end
@@ -4253,14 +4065,13 @@ begin
     RemoveAllAttrs;
     aSource := TbjXmlSource.Create(aXML);
     try
-      GetChilds.ParseXML(aSource, FNames, FPreserveWhiteSpace, FOnTagEnd, FOnTagBegin);
+      Get_Childs.ParseXML(aSource, FNames, FPreserveWhiteSpace);
     finally
       aSource.Free
     end
   end
 end;
 
-{
 procedure CopyWordToByteArray(s: PWord; d: PByte; Size: Integer);
 begin
   while Size>0 do
@@ -4269,7 +4080,6 @@ begin
     inc(s); inc(d); dec(Size);
   end;
 end;
-}
 
 {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)}
 procedure TbjXml.LoadXML(const aXML: TbjXmlString);
@@ -4401,16 +4211,6 @@ end;
 procedure TbjXml.SaveXML(aXMLSaver: TbjXmlSaver);
 begin
   Get_Childs.SaveXML(aXMLSaver);
-end;
-
-procedure TbjXml.Set_OnTagBegin(aValue: THookTag);
-begin
-  FOnTagBegin := aValue;
-end;
-
-procedure TbjXml.Set_OnTagEnd(aValue: THookTag);
-begin
-  FOnTagEnd := aValue;
 end;
 
 procedure TbjXml.Set_PreserveWhiteSpace(aValue: Boolean);
@@ -4553,8 +4353,8 @@ function TbjXmlSource.Next: Boolean;
         end;
       end;
       {$IF not Defined(XML_WIDE_CHARS) and not Defined(Unicode)}
-      FBufSize := WideCharToMultiByte(XMLCodepage, 0, @TempDest, FBufSize, FBuffer, SourceBufferSize, nil, nil);
-{$IFEND}
+      FBufSize := WideCharToMultiByte(CP_ACP, 0, @TempDest, FBufSize, FBuffer, SourceBufferSize, nil, nil);
+      {$IFEND}
     end;
     if FBufSize=0
     then
@@ -4568,12 +4368,6 @@ begin
     CurChar := FBufPtr^;
     dec(FBufSize);
     Inc(FBufPtr);
-    Inc(FSourceCol);
-    if CurChar = #$0a then
-    begin
-      Inc(FSourceLine);
-      FSourceCol := 0;
-    end;
   end
   else
   if FBufSize=0
@@ -4609,7 +4403,7 @@ end;
 function TbjXmlSource.ExpecTbjXmlName: TbjXmlString;
 begin
   if not NameCanBeginWith(CurChar) then
-    raise Exception.CreateFmt(SSimpleXmlError11, [FSourceLine, FSourceCol]);
+    raise Exception.Create(SSimpleXmlError11);
   NewToken;
   AppendTokenChar(CurChar);
   while Next and NameCanContain(CurChar) do
@@ -4631,7 +4425,7 @@ begin
   end;
   s := AcceptToken;
   if Length(s) = 0 then
-    raise Exception.CreateFmt(SSimpleXmlError12, [FSourceLine, FSourceCol]);
+    raise Exception.Create(SSimpleXmlError12);
   Val(s, Result, e);
 end;
 
@@ -4661,7 +4455,7 @@ begin
   s := '$';
   s := s + AcceptToken;
   if Length(s) = 1 then
-    raise Exception.CreateFmt(SSimpleXmlError13, [FSourceLine, FSourceCol]);
+    raise Exception.Create(SSimpleXmlError13);
   Val(s, Result, e);
 end;
 
@@ -4672,10 +4466,10 @@ var
   s: TbjXmlString;
 begin
   if not Next then
-    raise Exception.CreateFmt(SSimpleXmlError14, [FSourceLine, FSourceCol]);
+    raise Exception.Create(SSimpleXmlError14);
   if CurChar = '#' then begin
     if not Next then
-      raise Exception.CreateFmt(SSimpleXmlError12, [FSourceLine, FSourceCol]);
+      raise Exception.Create(SSimpleXmlError12);
     if CurChar = 'x' then begin
       Next;
       Result := TbjXmlChar(ExpectHexInteger);
@@ -4698,7 +4492,7 @@ begin
     else if s = 'apos' then
       Result := ''''
     else
-      raise Exception.CreateFmt(SSimpleXmlError15 , [s, FSourceLine, FSourceCol]);
+      raise Exception.CreateFmt(SSimpleXmlError15, [s]);
   end
 end;
 
@@ -4710,7 +4504,7 @@ end;
 procedure TbjXmlSource.ExpectChar(aChar: TbjXmlChar);
 begin
   if EOF or (CurChar <> aChar) then
-    raise Exception.CreateFmt(SSimpleXmlError16, [aChar, FSourceLine, FSourceCol]);
+    raise Exception.CreateFmt(SSimpleXmlError16, [aChar]);
   Next;
 end;
 
@@ -4718,7 +4512,7 @@ procedure TbjXmlSource.ExpectText(aText: PbjXmlChar);
 begin
   while aText^ <> #0 do begin
     if (CurChar <> aText^) or EOF then
-      raise Exception.CreateFmt(SSimpleXmlError17, [aText, FSourceLine, FSourceCol]);
+      raise Exception.CreateFmt(SSimpleXmlError17, [aText]);
     Inc(aText);
     Next;
   end;
@@ -4734,14 +4528,14 @@ begin
     if CurChar = '&' then
       AppendTokenChar(ExpecTbjXmlEntity)
     else if CurChar = '<' then
-      raise Exception.CreateFmt(SSimpleXmlError18, [FSourceLine, FSourceCol])
+      raise Exception.Create(SSimpleXmlError18)
     else begin
       AppendTokenChar(CurChar);
       Next;
     end
   end;
   if EOF then
-    raise Exception.CreateFmt(SSimpleXmlError19, [aQuote, FSourceLine, FSourceCol]);
+    raise Exception.CreateFmt(SSimpleXmlError19, [aQuote]);
   Next;
   Result := AcceptToken;
 end;
@@ -4758,11 +4552,11 @@ begin
     ExpectChar('=');
     SkipBlanks;
     if EOF then
-      raise Exception.CreateFmt(SSimpleXmlError20, [FSourceLine, FSourceCol]);
+      raise Exception.Create(SSimpleXmlError20);
     if (CurChar = '''') or (CurChar = '"') then
       aValue := ExpectQuotedText(CurChar)
     else
-      raise Exception.CreateFmt(SSimpleXmlError21, [FSourceLine, FSourceCol]);
+      raise Exception.Create(SSimpleXmlError21);
     aNode.SetAttr(aName, aValue);
     SkipBlanks;
   end;
@@ -4824,7 +4618,7 @@ begin
         aCheck := aText;
     end;
   end;
-  raise Exception.CreateFmt(SSimpleXmlError22, [aText, FSourceLine, FSourceCol]);
+  raise Exception.CreateFmt(SSimpleXmlError22, [aText]);
 end;
 
 function CalcUTF8Len(c: AnsiChar): Integer;
@@ -4867,8 +4661,6 @@ begin
   AutoCodepage := True;  //Set Codepage according XML encoding property
   GetMem(FBuffer, SourceBufferSize*SizeOf(TbjXmlChar));
   FBufPtr := FBuffer;
-  FSourceLine := 1;
-  FSourceCol := 0;
   Next;
 end;
 
@@ -4978,19 +4770,23 @@ begin
   then
     FlushBuffer;
   P := FBuffersize div 3;
-  while L>P do
-  begin
-    SaveToBuffer(XmlStr, P);
-    FlushBuffer;
-    dec(L, P);
-    inc(XmlStr, P);
-  end;
+  if L>P
+  then begin
+    while L>P do
+    begin
+      SaveToBuffer(XmlStr, P);
+      FlushBuffer;
+      dec(L, P);
+      inc(XmlStr, P);
+    end;
+  end
+  else
   if (L<>0)
   then begin
     {$IF not Defined(XML_WIDE_CHARS) and not Defined(Unicode)}
     GetMem(Temp, L*SizeOf(WideChar));
     try
-      L := MultiByteToWideChar(XMLCodepage, 0, XmlStr, L, Temp, L);
+      L := MultiByteToWideChar(CP_ACP, 0, XmlStr, L, Temp, L);
       L := WideCharToMultiByte(FCodepage, 0, Temp, L, FBufferPtr, FRemain, nil, nil);
     finally
       FreeMem(Temp);
