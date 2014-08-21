@@ -34,15 +34,20 @@ const
       QUOTE = 263;
       TEXT = 264;
       QTEXT = 265;
+      COMMENT = 266;
 %}
-
-%start STR
+%start STR REMARK
 
  function yylex: integer;
 
  implementation
 
 %%
+<REMARK>\*\/          begin     start(0);             end;   
+<REMARK>[^*]+        begin     start(REMARK);end;
+<REMARK>*[^/]+      begin     start(REMARK);end;
+<REMARK>[ \t\n]+        begin     start(REMARK);end;
+\/\*                begin    start(REMARK);end;
 
 <STR>\"     begin
               start(0);
@@ -54,7 +59,7 @@ const
               return(QUOTE);
             end;
 
-<STR>[^"\n:]+   begin
+<STR>[^"\n]+   begin
                   return(QTEXT);
                end;
 
@@ -82,12 +87,20 @@ const
               return(COMMA);
             end;
 
-[^" \n:]+   begin
+[^" \n:,{}[\]]+   begin
               return(TEXT);
             end;
 
 [ \t\n]+    ;
 
+
 %%
+initialization
+  AssignFile(yyinput, 'json.txt');
+  FileMode := 0;  {Set file access to read only }
+  Reset(yyinput);
+  AssignFile(yyoutput, 'xml.txt');
+  Rewrite(yyoutput);
+finalization
 end.
 

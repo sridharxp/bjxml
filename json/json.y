@@ -22,31 +22,56 @@ unit json;
 interface
 
 uses
-  SysUtils, LexLib, YaccLib, jsonlex;
-
+  SysUtils, LexLib, YaccLib, jsonlex, Contnrs;
+const
+  preamble = '<?xml version="1.0" encoding="UTF-8"?>';
 %}
 
 %token LCB RCB LSB RSB COMMA COLON QUOTE
-%token TEXT QTEXT
-
+%token TEXT QTEXT COMMENT
+%{
+type YYSType = AnsiString;
+var
+  xmlText: ansiString;
+%}
 %%
 
-object:    LCB bson_list RCB
+root:      object {$$ := $1 ; xmlText := preamble + #13#10 + '<root>' + #13#10 + $$ + #13#10 + '</root>';} 
+        |  arr    {$$ := $1 ; xmlText := preamble + #13#10 + '<root>' + #13#10 + $$ + #13#10 + '</root>';} 
+        ;        
+object:    LCB 
+           bson_list 
+           RCB {$$ := $2;} 
 	;
-bson_list:      bson {writeln('Bson');}
-        |       bson_list COMMA bson
+bson_list:      bson 
+        |       bson_list COMMA bson {$$ := $1 + #13#10 + $3;}
         ;                
-element_list: element
-        |     element_list COMMA element
+arr_list:  aitem 
+        |  arr_list COMMA aitem {$$ :=  $1 + #13#10 + $3;}
         ;
-value:     element | object | arr
+value:     element
+        |  object  {$$ := #13#10 + $1 + #13#10;}
+        |  arr     {$$ := #13#10 + $1 + #13#10;}
         ;
 bson:      element COLON value
+           {
+             $$ := '<'+ $1 +'>'+  $3 + '</'+ $1 +'>';
+           }
         ;
-arr:      LSB element_list RSB
+arr:      LSB 
+          arr_list RSB {$$ := $2;}
         ;
-element:   TEXT  {writeln('TEXT');}
-        |  QUOTE QTEXT QUOTE {writeln('QTEXT');}
+aitem:    element
+           { 
+           $$ := '<element>' +  $1 + '</element>';
+           }
+        | object
+           {
+           $$ :=  '<element>' + #13#10 + $1 + #13#10 + '</element>';
+           }                                     
+        ;
+element:   QUOTE QTEXT {$2 := yytext;} QUOTE {$$ := $2;}
+        |  TEXT {$$ := yytext;} 
         ;
 %%
 end.
