@@ -75,7 +75,7 @@ const
               return(LSB);
             end;
 
-]           begin
+\]           begin
               return(RSB);
             end;
 
@@ -99,8 +99,6 @@ initialization
   AssignFile(yyinput, 'json.txt');
   FileMode := 0;  {Set file access to read only }
   Reset(yyinput);
-  AssignFile(yyoutput, 'xml.txt');
-  Rewrite(yyoutput);
 finalization
 end.
 

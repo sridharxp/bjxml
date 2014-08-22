@@ -37,7 +37,6 @@ var
 %%
 
 root:      object {$$ := $1 ; xmlText := preamble + #13#10 + '<root>' + #13#10 + $$ + #13#10 + '</root>';} 
-        |  arr    {$$ := $1 ; xmlText := preamble + #13#10 + '<root>' + #13#10 + $$ + #13#10 + '</root>';} 
         ;        
 object:    LCB 
            bson_list 
@@ -67,7 +66,7 @@ aitem:    element
            }
         | object
            {
-           $$ :=  '<element>' + #13#10 + $1 + #13#10 + '</element>';
+           $$ := '<element>' + #13#10 + $1 + #13#10 + '</element>';
            }                                     
         ;
 element:   QUOTE QTEXT {$2 := yytext;} QUOTE {$$ := $2;}
