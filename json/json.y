@@ -36,7 +36,9 @@ var
 %}
 %%
 
-root:      object {$$ := $1 ; xmlText := preamble + #13#10 + '<root>' + #13#10 + $$ + #13#10 + '</root>';} 
+root:      object {$$ := $1 ; xmlText := preamble + #13#10 + '<root>' + #13#10 + $$ + #13#10 + '</root>';
+           writeln(yyoutput, xmltext);
+}
         ;        
 object:    LCB 
            bson_list 
