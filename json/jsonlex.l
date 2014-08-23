@@ -95,13 +95,5 @@ const
 
 
 %%
-initialization
-  AssignFile(yyinput, 'json.txt');
-  FileMode := 0;  {Set file access to read only }
-  Reset(yyinput);
-  AssignFile(yyoutput, 'xml.txt');
-  FileMode := fmOpenRead or fmShareDenyWrite;
-  Rewrite(yyoutput);
-finalization
 end.
 
