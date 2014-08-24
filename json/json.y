@@ -33,7 +33,7 @@ const
 type YYSType = AnsiString;
 var
   xmlText: ansiString;
-%}
+function EscapeXml(const str: AnsiString): AnsiString;%}
 %%
 
 root:      object {$$ := $1 ; xmlText := preamble + #13#10 + '<root>' + #13#10 + $$ + #13#10 + '</root>';
@@ -71,8 +71,34 @@ aitem:    element
            $$ := '<element>' + #13#10 + $1 + #13#10 + '</element>';
            }                                     
         ;
-element:   QUOTE QTEXT {$2 := yytext;} QUOTE {$$ := $2;}
+element:   QUOTE QTEXT {$2 := yytext;} QUOTE {$$ := EscapeXml($2);}
         |  TEXT {$$ := yytext;} 
         ;
 %%
+function EscapeXml(const str: AnsiString): AnsiString;
+var
+  i: integer;
+begin
+  Result := '';
+  for i:= 1 to Length(str)do
+  begin
+  if str[i] ='''' then
+    Result :=  Result + '&apos;'
+  else
+  if str[i] = '"' then
+    Result :=  Result + '&quot;'
+  else
+  if str[i] = '&' then
+    Result :=  Result + '&amp;'
+  else
+  if str[i] = '<' then
+    Result :=  Result + '&lt;'
+  else
+  if str[i] = '<' then
+    Result :=  Result + '&gt;'
+  else
+    Result :=  Result + str[i];
+  end;
+end;
+
 end.

@@ -43,11 +43,11 @@ const
  implementation
 
 %%
-<REMARK>\*\/          begin     start(0);             end;   
-<REMARK>[^*]+        begin     start(REMARK);end;
-<REMARK>*[^/]+      begin     start(REMARK);end;
-<REMARK>[ \t\n]+        begin     start(REMARK);end;
-\/\*                begin    start(REMARK);end;
+<REMARK>\*\/          begin     start(0);              end;   
+<REMARK>[^*]+         begin     yymore;  start(REMARK);end;
+<REMARK>*[^/]+        begin     yymore;  start(REMARK);end;
+<REMARK>[ \t\n]+      begin     yymore;  start(REMARK);end;
+\/\*                  begin     start(REMARK);         end;
 
 <STR>\"     begin
               start(0);
