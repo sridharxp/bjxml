@@ -38,16 +38,18 @@ const
 %}
 %start STR REMARK
 
+ var
+   cline: AnsiString;
  function yylex: integer;
 
  implementation
 
 %%
-<REMARK>\*\/          begin     start(0);              end;   
-<REMARK>[^*]+         begin     yymore;  start(REMARK);end;
-<REMARK>*[^/]+        begin     yymore;  start(REMARK);end;
-<REMARK>[ \t\n]+      begin     yymore;  start(REMARK);end;
-\/\*                  begin     start(REMARK);         end;
+<REMARK>\*\/          begin     cline := cline + yytext + #13#10; start(0);              end;   
+<REMARK>[^*]+         begin     cline := cline + yytext; start(REMARK);end;
+<REMARK>*[^/]         begin     cline := cline + yytext; start(REMARK);end;
+<REMARK>[ \t\n]+      begin     cline := cline + yytext; start(REMARK);end;
+\/\*                  begin     cline := cline + #13#10 + yytext; start(REMARK);         end;
 
 <STR>\"     begin
               start(0);

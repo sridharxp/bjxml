@@ -36,7 +36,7 @@ var
 function EscapeXml(const str: AnsiString): AnsiString;%}
 %%
 
-root:      object {$$ := $1 ; xmlText := preamble + #13#10 + '<root>' + #13#10 + $$ + #13#10 + '</root>';
+root:      object {$$ := $1 ; xmlText := preamble + cline + '<root>' + #13#10 + $$ + #13#10 + '</root>';
            writeln(yyoutput, xmltext);
 }
         ;        
@@ -56,7 +56,7 @@ value:     element
         ;
 bson:      element COLON value
            {
-             $$ := '<'+ $1 +'>'+  $3 + '</'+ $1 +'>';
+             $$ := '<'+ $1 +'>'+  $3 + '</'+ $1 +'>'; 
            }
         ;
 arr:      LSB 
