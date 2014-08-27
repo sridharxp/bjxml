@@ -36,6 +36,12 @@ const
       QTEXT = 265;
       COMMENT = 266;
 %}
+CE              \*\/
+LAS             [^*]
+LAC             \*[^/]
+WS              [ \t\n]
+CS              \/\*
+
 %start STR REMARK
 
  var
@@ -45,11 +51,9 @@ const
  implementation
 
 %%
-<REMARK>\*\/          begin     cline := cline + yytext + #13#10; start(0);              end;   
-<REMARK>[^*]+         begin     cline := cline + yytext; start(REMARK);end;
-<REMARK>*[^/]         begin     cline := cline + yytext; start(REMARK);end;
-<REMARK>[ \t\n]+      begin     cline := cline + yytext; start(REMARK);end;
-\/\*                  begin     cline := cline + #13#10 + yytext; start(REMARK);         end;
+<REMARK>{CE}          begin     cline := cline + yytext + #13#10; start(0);              end;   
+<REMARK>({LAS}|{LAC}|{WS})+     begin     cline := cline + yytext; start(REMARK);end;
+{CS}                  begin     cline := cline + #13#10 + yytext; start(REMARK);         end;
 
 <STR>\"     begin
               start(0);
@@ -93,7 +97,7 @@ const
               return(TEXT);
             end;
 
-[ \t\n]+    ;
+{WS}+       ;
 
 
 %%
