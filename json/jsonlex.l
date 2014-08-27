@@ -42,7 +42,7 @@ LAC             \*[^/]
 WS              [ \t\n]
 CS              \/\*
 
-%start STR REMARK
+%start STR 
 
  var
    cline: AnsiString;
@@ -51,9 +51,7 @@ CS              \/\*
  implementation
 
 %%
-<REMARK>{CE}          begin     cline := cline + yytext + #13#10; start(0);              end;   
-<REMARK>({LAS}|{LAC}|{WS})+     begin     cline := cline + yytext; start(REMARK);end;
-{CS}                  begin     cline := cline + #13#10 + yytext; start(REMARK);         end;
+{CS}({LAS}|{LAC}|{WS})+{CE}     begin cline := cline + #13#10 + yytext + #13#10; end;
 
 <STR>\"     begin
               start(0);
