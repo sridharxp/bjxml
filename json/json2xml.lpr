@@ -18,12 +18,13 @@ begin
   { TODO -oUser -cConsole Main : Insert code here }
   if ParamCount = 0 then
   begin
-    writeln('Sytax: json2xml jsonFileName xmlFileName');
+    writeln('Sytax: json2xml <jsonFileName> [xmlFileName]');
     Exit;
   end;
   if ParamCount = 1 then
   begin
-    writeln('Sytax: json2xml jsonFileName xmlFileName');
+    writeln('Sytax: json2xml <jsonFileName> [xmlFileName]');
+    writeln('       Translating to xml.txt');
     jsonFN := ParamStr(1);
     xmlFN := 'xml.txt';
   end;

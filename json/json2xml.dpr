@@ -3,27 +3,28 @@ program json2xml;
 {$APPTYPE CONSOLE}
 
 uses
-  System,
+//  System,
   SysUtils,
   Json,
   lexlib,
-  Dialogs,
-  bjxml2 in '\..\DL\bjxml\bjxml2.pas';
+//  Dialogs,
+  bjxml2 in 'F:\DL\bjxml\bjxml2.pas';
 
 var
-  xdb: IbjXml;
+//  xdb: IbjXml;
   jsonFN: string;
   xmlFN: string;
 begin
   { TODO -oUser -cConsole Main : Insert code here }
   if ParamCount = 0 then
   begin
-    writeln('Sytax: json2xml jsonFileName xmlFileName');
+    writeln('Sytax: json2xml <jsonFileName> [xmlFileName]');
     Exit;
   end;
   if ParamCount = 1 then
   begin
-    writeln('Sytax: json2xml jsonFileName xmlFileName');
+    writeln('Sytax: json2xml <jsonFileName> [xmlFileName]');
+    writeln('       Translating to xml.txt');
     jsonFN := ParamStr(1);
     xmlFN := 'xml.txt';
   end;

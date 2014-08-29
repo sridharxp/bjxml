@@ -87,6 +87,7 @@
               *        Sridharan S       <aurosridhar@gmail.com>            *
               *                                                                   *
               *********************************************************************
+Based on Version 2013-04-03
 }
 unit bjxml2;
 
