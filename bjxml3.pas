@@ -120,6 +120,10 @@ Based on Version 2013-04-16
 }
 unit bjxml3;
 
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 interface
 
 { How to customize your simplexml.pas
@@ -145,7 +149,12 @@ Some Helper Functions like those in Chilkat
 }
 
 uses
-  SysUtils, Types, Windows, Classes, Dialogs;
+{$IFnDEF FPC}
+  Windows,
+{$ELSE}
+  LCLIntf, LCLType, LMessages,
+{$ENDIF}
+  SysUtils, Types, Classes, Dialogs;
 {$IF CompilerVersion>=18}{$DEFINE Regions}{$IFEND}
 {$IFDEF Regions}{$REGION 'Constantes Declaration'}{$ENDIF}
 const
@@ -293,59 +302,83 @@ type
     procedure Set_TypedValue(const aValue: Variant);
     // Get_XML - возвращает представление узла и всех вложенных узлов
     // в формате XML.
+    // Get_XML - returns the representation of the node and all sub nodes
+    // In XML.
     function Get_XML: TbjXmlString;
 
     // CloneNode - создает точную копию данного узла
     //  Если задан признак aDeep, то создастся копия
     //  всей ветви иерархии от данного узла.
+    // CloneNode - creates an exact copy of the node If you specify a sign
+    // aDeep, it will create a copy of the
+    // Entire branch of the hierarchy from the node.
     function CloneNode(aDeep: Boolean = True): IbjXml;
 
     // Get_ParentNode - возвращает родительский узел
     function Get_ParentNode: IbjXml;
     // Get_OwnerDocument - возвращает XML-документ,
     //  в котором расположен данный узел
+    // Get_OwnerDocument - returns the XML-document
+    // Which is active node
     function Get_OwnerDocument: IbjXml;
 
     // Get_ChildNodes - возвращает список дочерних узлов
+    // Get_ChildNodes - returns a list of child nodes
     function Get_ChildNodes: IbjXmlNodeList;
     // AppendChild - добавляет указанный узел в конец списка дочерних узлов
+    // AppendChild - adds the specified node to the end of the list of child nodes
     procedure AppendChild(const aChild: IbjXml);
     // InsertBefore - добавляет указанный узел в указанное место списка дочерних узлов
+    // InsertBefore - Adds the specified node to the destination list of child nodes
     procedure InsertBefore(const aChild, aBefore: IbjXml);
     // ReplaceChild - заменяет указанный узел другим узлом
+    // ReplaceChild - Replaces the specified node to other knot
     procedure ReplaceChild(const aNewChild, anOldChild: IbjXml);
     // RemoveChild - удаляет указанный узел из списка дочерних узлов
+    // RemoveChild - removes the specified node from the list of nodes doc(ernih
     procedure RemoveChild(const aChild: IbjXml);
     // ExchangeChild - Change node order
     procedure ExchangeChilds(const aChild1, aChild2: IbjXml);
 
     // AppendElement - создает элемент и добавляет его в конец списка
     //  в конец списка дочерних объектов
+    // AppendElement - creates an element and adds it to the end of the list
+    // End of the list of child objects
     // created an element and add it to the end of the list as child node
     function AppendElement(aNameID: NativeInt): IbjXmlElement; overload;
     function AppendElement(const aName: TbjXmlString): IbjXmlElement; overload;
 
-    // AppendText - создает текстовый узел и добавляет его 
+    // AppendText - создает текстовый узел и добавляет его
     //  в конец списка дочерних объектов
+    // AppendText - creates a text node and adds it
+    // End of the list of child objects
     function AppendText(const aData: TbjXmlString): IbjXmlText;
 
     // AppendCDATA - создает секцию CDATA и добавляет ее
     //  в конец списка дочерних объектов
+    // AppendCDATA - creates a CDATA section and adds it
+    // End of the list of child objects
     function AppendCDATA(const aData: TbjXmlString): IbjXmlCDATASection;
 
     // AppendComment - создает комментарий и добавляет его
     //  в конец списка дочерних объектов
-    function AppendComment(const aData: TbjXmlString): IbjXmlComment; 
+    // AppendComment - creates a comment and adds it
+    // End of the list of child objects
+    function AppendComment(const aData: TbjXmlString): IbjXmlComment;
 
     // AppendProcessingInstruction - создает инструкцию и добавляет её
     //  в конец списка дочерних объектов
+    // AppendProcessingInstruction - creates and adds it to the user manual
+    // End of the list of child objects
     function AppendProcessingInstruction(aTargetID: NativeInt;
       const aData: TbjXmlString): IbjXmlProcessingInstruction; overload;
     function AppendProcessingInstruction(const aTarget: TbjXmlString;
       const aData: TbjXmlString): IbjXmlProcessingInstruction; overload;
-    
+
     // GetChildText - возвращает значение дочернего узла
     // SetChildText - добавляет или изменяет значение дочернего узла
+    // GetChildText - returns the value of the child node
+    // SetChildText - adds or changes the value of the child node
     function GetChildText(const aName: TbjXmlString; const aDefault: TbjXmlString = ''): TbjXmlString; overload;
     function GetChildText(aNameID: NativeInt; const aDefault: TbjXmlString = ''): TbjXmlString; overload;
     procedure SetChildText(const aName, aValue: TbjXmlString); overload;
@@ -353,6 +386,8 @@ type
 
     // NeedChild - возвращает дочерний узел с указанным именем.
     //  Если узел не найден, то генерируется исключение
+    // NeedChild - returns the child node with the specified name.
+    // If the node is not found, an exception is thrown
     function NeedChild(aNameID: NativeInt): IbjXml; overload;
     function NeedChild(const aName: TbjXmlString): IbjXml; overload;
 
@@ -366,6 +401,8 @@ type
 
     // SelectNodes - производит выборку узлов, удовлетворяющих
     //  указанным критериям
+    // SelectNodes - fetches nodes satisfying
+    // Search criteria
     function SelectNodes(const anExpression: TbjXmlString): IbjXmlNodeList;
     // SelectSingleNode - производит поиск первого узла, удовлетворяющего
     //  указанным критериям
@@ -375,6 +412,8 @@ type
     function FullPath: TbjXmlString;
     // FindElement - производит поиск первого узла, удовлетворяющего
     //  указанным критериям
+    // FindElement - searches for the first node that satisfies
+    // Search criteria
     function FindElement(const anElementName, anAttrName: String; const anAttrValue: Variant): IbjXmlElement;
 
     // Get_AttrCount - возвращает количество атрибутов
@@ -390,18 +429,24 @@ type
     procedure RemoveAllAttrs;
 
     // AttrExists - проверяет, задан ли указанный атрибут.
+    // AttrExists - checks to see if the specified attribute.
     function AttrExists(aNameID: NativeInt): Boolean; overload;
     function AttrExists(const aName: TbjXmlString): Boolean; overload;
 
     // GetAttrType - возаращает тип данных атрибута в терминах вариантов
+    // GetAttrType - vozaraschaet data type attribute in terms of options
     function GetAttrType(aNameID: NativeInt): Integer; overload;
     function GetAttrType(const aName: TbjXmlString): Integer; overload;
 
     // GetAttrType - возвращает тип атрибута
+    // GetAttrType - returns the attribute type
     //  Result
     // GetVarAttr - возвращает типизированное значение указанного атрибута.
     //  Если атрибут не задан, то возвращается значение по умолчанию
     // SetAttr - изменяет или добавляет указанный атрибут
+    // GetVarAttr - returns the typed value of the specified attribute.
+    // If the attribute is not specified, the default is returned
+    // SetAttr - modifies or adds the specified attribute
     function GetVarAttr(aNameID: NativeInt; const aDefault: Variant): Variant; overload;
     function GetVarAttr(const aName: TbjXmlString; const aDefault: Variant): Variant; overload;
     procedure SetVarAttr(aNameID: NativeInt; const aValue: Variant); overload;
@@ -409,12 +454,17 @@ type
 
     // NeedAttr - возвращает строковое значение указанного атрибута.
     //  Если атрибут не задан, то генерируется исключение
+    // NeedAttr - returns the string value of the specified attribute.
+    // If the attribute is not specified, an exception is thrown
     function NeedAttr(aNameID: NativeInt): TbjXmlString; overload;
     function NeedAttr(const aName: TbjXmlString): TbjXmlString; overload;
 
     // GetAttr - возвращает строковое значение указанного атрибута.
     //  Если атрибут не задан, то возвращается значение по умолчанию
     // SetAttr - изменяет или добавляет указанный атрибут
+    // GetAttr - returns the string value of the specified attribute.
+    // If the attribute is not specified, the default is returned
+    // SetAttr - modifies or adds the specified attribute
     function GetAttr(aNameID: NativeInt; const aDefault: TbjXmlString = ''): TbjXmlString; overload;
     function GetAttr(const aName: TbjXmlString; const aDefault: TbjXmlString = ''): TbjXmlString; overload;
     procedure SetAttr(aNameID: NativeInt; const aValue: TbjXmlString); overload;
@@ -427,6 +477,9 @@ type
     // GetBoolAttr - возвращает целочисленное значение указанного атрибута
     // SetBoolAttr - изменяет или добавляет указанный атрибут целочисленным
     //  значением
+    // GetBoolAttr - returns an integer value of the specified attribute
+    // SetBoolAttr - modifies or adds the specified attribute is an integer
+    // value
     function GetBoolAttr(aNameID: NativeInt; aDefault: Boolean = False): Boolean; overload;
     function GetBoolAttr(const aName: TbjXmlString; aDefault: Boolean = False): Boolean; overload;
     procedure SetBoolAttr(aNameID: NativeInt; aValue: Boolean = False); overload;
@@ -435,6 +488,9 @@ type
     // GetIntAttr - возвращает целочисленное значение указанного атрибута
     // SetIntAttr - изменяет или добавляет указанный атрибут целочисленным
     //  значением
+    // GetIntAttr - returns an integer value of the specified attribute
+    // SetIntAttr - modifies or adds the specified attribute is an integer
+    // value
     function GetIntAttr(aNameID: NativeInt; aDefault: Integer = 0): Integer; overload;
     function GetIntAttr(const aName: TbjXmlString; aDefault: Integer = 0): Integer; overload;
     procedure SetIntAttr(aNameID: NativeInt; aValue: Integer); overload;
@@ -443,6 +499,9 @@ type
     // GetDateTimeAttr - возвращает целочисленное значение указанного атрибута
     // SetDateTimeAttr - изменяет или добавляет указанный атрибут целочисленным
     //  значением
+    // GetDateTimeAttr - returns an integer value of the specified attribute
+    // SetDateTimeAttr - modifies or adds the specified attribute is an integer
+    // value
     function GetDateTimeAttr(aNameID: NativeInt; aDefault: TDateTime = 0): TDateTime; overload;
     function GetDateTimeAttr(const aName: TbjXmlString; aDefault: TDateTime = 0): TDateTime; overload;
     procedure SetDateTimeAttr(aNameID: NativeInt; aValue: TDateTime); overload;
