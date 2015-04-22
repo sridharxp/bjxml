@@ -200,9 +200,15 @@ type
     TbjXmlString = String;
     {$ENDIF}
   {$ELSE}
+    {$IFDEF FPC}
+    PXmlChar = PWideChar;
+    TbjXmlChar = WideChar;
+    TbjXmlString = UnicodeString;
+    {$ELSE}
   PbjXmlChar = PChar;
   TbjXmlChar = Char;
   TbjXmlString = String;
+    {$ENDIF}
   {$ENDIF}
 
   {$IF not Declared(RawByteString)}
@@ -414,7 +420,8 @@ type
     //  указанным критериям
     // FindElement - searches for the first node that satisfies
     // Search criteria
-    function FindElement(const anElementName, anAttrName: String; const anAttrValue: Variant): IbjXmlElement;
+//    function FindElement(const anElementName, anAttrName: TString; const anAttrValue: Variant): IbjXmlElement;
+    function FindElement(const anElementName, anAttrName: TbjXmlString; const anAttrValue: Variant): IbjXmlElement;
 
     // Get_AttrCount - возвращает количество атрибутов
     function Get_AttrCount: Integer;
@@ -698,7 +705,7 @@ function CreatebjXmlDocument(const aRootElementName: String = '';
                            const anEncoding: String = '';  // 'UTF-8'
                            const aNameTable: IbjXmlNameTable = nil): IbjXml;
 
-function CreateXmlElement(const aName: TbjXmlString; const aNameTable: IbjXmlNameTable = nil): IbjXmlElement;
+function CreatebjXmlElement(const aName: TbjXmlString; const aNameTable: IbjXmlNameTable = nil): IbjXmlElement;
 function LoadXmlDocumentFromXML(const aXML: RawByteString; const anEncoding: String = ''): IbjXml;
 function LoadXmlDocumentFromBinaryXML(const aXML: RawByteString): IbjXml;
 
@@ -748,6 +755,7 @@ function RSearchForTag(aNode: IbjXml; const fromwhere: IbjXml;
                        const aName: TbjXmlString; var found: boolean): IbjXml;
 function RGoToTag(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
 function RHopNode(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
+//procedure MoveTag (Const aSource: IbjXml; aDestination: IbjXml);
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 
 implementation
@@ -2647,7 +2655,8 @@ type
     function SelectNodes(const anExpression: TbjXmlString): IbjXmlNodeList;
     function SelectSingleNode(const anExpression: TbjXmlString): IbjXml;
     function FullPath: TbjXmlString;
-    function FindElement(const anElementName, anAttrName: String; const anAttrValue: Variant): IbjXmlElement;
+//    function FindElement(const anElementName, anAttrName: String; const anAttrValue: Variant): IbjXmlElement;
+    function FindElement(const anElementName, anAttrName: TbjXmlString; const anAttrValue: Variant): IbjXmlElement;
 
     function Get_AttrCount: Integer;
     function Get_AttrNameID(anIndex: Integer): NativeInt;
@@ -3968,7 +3977,7 @@ begin
   end
 end;
 
-function TbjXml.FindElement(const anElementName, anAttrName: String;
+function TbjXml.FindElement(const anElementName, anAttrName: TbjXmlString;
                               const anAttrValue: Variant): IbjXmlElement;
 var
   aChild: TbjXml;
@@ -6500,6 +6509,7 @@ begin
   Result := Get_ParentNode;
 end;
 
+
 function TbjXml.GetChildWithTag(const aName: TbjXmlString): IbjXml;
 var
   i: integer;
@@ -6813,7 +6823,7 @@ end;
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 {$IFDEF Regions}{$REGION 'Document Creation Function Implementation'}{$ENDIF}
 
-function CreateXmlElement(const aName: TbjXmlString; const aNameTable: IbjXmlNameTable): IbjXmlElement;
+function CreatebjXmlElement(const aName: TbjXmlString; const aNameTable: IbjXmlNameTable): IbjXmlElement;
 var
   aNameTableImpl: TbjXmlNameTable;
 begin
@@ -6824,7 +6834,7 @@ begin
   Result := TbjXmlElement.Create(aNameTableImpl, aNameTableImpl.GetID(aName));
 end;
 
-function CreatebjXmlDocument(const aRootElementName: String;
+function CreatebjXmlDocument(const aRootElementName: TbjXmlString;
                            const aVersion: String;
                            const anEncoding: String;
                            const aNameTable: IbjXmlNameTable): IbjXml;
