@@ -120,6 +120,10 @@ Based on Version 2013-04-16
 }
 unit bjxml3_1;
 
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 interface
 
 { How to customize your simplexml.pas
@@ -145,9 +149,17 @@ Some Helper Functions like those in Chilkat
 }
 
 uses
-  SysUtils, Types, Classes, Windows, Dialogs;
-  
+  SysUtils, Classes, Types,
+{$IFnDEF FPC}
+  Windows;
+{$ELSE}
+  LCLType, StrUtils;
+{$ENDIF}
+{$IFnDEF FPC}
 {$IF CompilerVersion>=18}{$DEFINE Regions}{$IFEND}
+{$ELSE}
+{$DEFINE Regions}
+{$ENDIF}
 {$IFDEF Regions}{$REGION 'Constantes Declaration'}{$ENDIF}
 const
   BinXmlSignature: UTF8String = '< binary-xml >';
@@ -160,9 +172,12 @@ const
   // Set CP_UTF8, if you want to use UTF8 encoded AnsiStrings. At runtime you
   // can change the variable XMLCodepage
 //  XMLDefaultcodepage = CP_ACP;
-  XMLDefaultcodepage = CP_UTF8;
-
+  {$IFDEF FPC}
+  CP_UTF8 = 65001;
   {$endif}
+  XMLDefaultcodepage = CP_UTF8;
+  {$endif}
+
   XSTR_NULL = '{{null}}';
 
   SourceBufferSize=$4000;
@@ -187,9 +202,15 @@ type
     TbjXmlChar = WideChar;
     TbjXmlString = WideString;
     {$ELSE}
+    {$IFnDEF FPC}
     PXmlChar = PChar;
     TbjXmlChar = Char;
     TbjXmlString = String;
+    {$ELSE}
+    PXmlChar = PChar;
+    TbjXmlChar = Char;
+    TbjXmlString = UTF8String;
+    {$ENDIF}
     {$ENDIF}
   {$ELSE}
   PbjXmlChar = PChar;
@@ -203,9 +224,19 @@ type
   {$IF not Declared(TBytes)}
   TBytes = TByteDynArray;
   {$IFEND}
+  {$IFnDEF FPC}
   {$IF (CompilerVersion<20.00)}
   NativeInt = type Integer;     //Override NativeInt because in Delphi2007 SizeOf(NativeInt)<>SizeOf(Pointer)
   {$IFEND}
+  {$IFEND}
+  {$IFDEF FPC}
+  LPCSTR  = Pchar;
+  LPSTR = Pchar;
+  LPWSTR = Pwidechar;
+  WINBOOL = longbool;
+  PBOOL    = ^BOOL;
+  LPBOOL = ^WINBOOL;
+  {$ENDIF}
 
   {$define myXMLString_is_UTF8String}
   {.$define myXMLString_is_TBytes}
@@ -686,7 +717,7 @@ type
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 {$IFDEF Regions}{$REGION 'Document Creation Functions'}{$ENDIF}
 function CreateNameTable(aHashTableSize: Integer = DefaultHashSize): IbjXmlNameTable;
-function CreatebjXmlDocument(const aRootElementName: String = '';
+function CreatebjXmlDocument(const aRootElementName: TbjXmlString = '';
                            const aVersion: String = '';    // '1.0'
                            const anEncoding: String = '';  // 'UTF-8'
                            const aNameTable: IbjXmlNameTable = nil): IbjXml;
@@ -705,7 +736,7 @@ var
   DefaultIndentText: TmyXmlString = #9;
   XMLPathDelimiter: TbjXmlString = '\';
 
-  {$if not defined(XML_WIDE_CHARS) and not defined(Unicode)}
+  {$if not defined(XML_WIDE_CHARS) and not defined(Unicode) and not Defined(fpc)}
 
   // Codepage for TbjXmlString if it is AnsiString
   // !!! do not change if you have one or more open XMLDocuments !!!
@@ -740,8 +771,22 @@ procedure GetCodingNameList(List: TStrings);
 function RSearchForTag(aNode: IbjXml; const fromwhere: IbjXml;
                        const aName: TbjXmlString; var found: boolean): IbjXml;
 function RGoToTag(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
+
 function RHopNode(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
+
 //procedure MoveTag (Const aSource: IbjXml; aDestination: IbjXml);
+
+function IsAlphaChar(ch: WideChar): boolean;
+function IsNumericChar(ch: WideChar): boolean;
+function IsAlphaNumericChar(ch: WideChar): boolean;
+function MultiByteToWideChar(CodePage: UINT; dwFlags: DWORD;
+                             const lpMultiByteStr: LPCSTR; cchMultiByte: Integer;
+                             lpWideCharStr: LPWSTR; cchWideChar: Integer): Integer;
+function WideCharToMultiByte(CodePage: UINT; dwFlags: DWORD;
+                             lpWideCharStr: LPWSTR; cchWideChar: Integer;
+                             lpMultiByteStr: LPSTR; cchMultiByte: Integer;
+                             lpDefaultChar: LPCSTR; lpUsedDefaultChar: PBOOL): Integer;
+
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 
 implementation
@@ -751,7 +796,7 @@ uses
   SysConst, AnsiStrings, Variants, DateUtils;
 {$else}
 uses
-  SysConst, Variants, DateUtils, StrUtils;
+  SysConst, Variants, DateUtils;
 {$endif}
 {$IFDEF Regions}{$REGION 'Error Messages'}{$ENDIF}
 resourcestring
@@ -817,7 +862,7 @@ resourcestring
   SSimpleXmlError27 = 'Unicode кодировка не поддерживается SimpleXML';
   SSimpleXmlError28 = 'Дочерний элемент "%s" имеет несколько узлов данных';
   {$ELSE}
-  {$INCLUDE *_Cyrillic.inc}
+  {$INCLUDE .pas*_Cyrillic.inc}
   {$IFEND}
   {$ENDIF}
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
@@ -1158,7 +1203,7 @@ begin
 end;
 
 function XMLStringToMyXMLString(const src: TbjXmlString): TmyXMLString;
-{$IF not Defined(XML_WIDE_CHARS) and not Defined(Unicode)}
+{$IF not Defined(XML_WIDE_CHARS) and not Defined(Unicode)and not Defined(fpc)}
 var
   TempSize: Integer;
   temp: array of WideChar;
@@ -1172,7 +1217,7 @@ begin
   SrcCount := Length(src);
   if (SrcCount<>0)
   then begin
-    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)}
+    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)or Defined(fpc)}
     // UTF16 -> UTF8
     Result := UTF8Encode(src);
     {$else}
@@ -1216,7 +1261,7 @@ begin
 end;
 
 function MyXMLStringToXMLString(const src: TMyXMLString): TbjXmlString;
-{$IF not Defined(XML_WIDE_CHARS) and not Defined(Unicode)}
+{$IF not Defined(XML_WIDE_CHARS) and not Defined(Unicode) and not Defined(fpc)}
 var
   TempSize: Integer;
   temp: array of WideChar;
@@ -1238,7 +1283,11 @@ begin
     // UTF8 -> UTF16
     Result := UTF8Decode(src);
     {$endif}
-    {$IF not Defined(XML_WIDE_CHARS) and not Defined(Unicode)}
+    {$ifdef fpc}
+    // UTF8 -> UTF16
+    Result := UTF8Decode(src);
+    {$endif}
+    {$IF not Defined(XML_WIDE_CHARS) and not Defined(Unicode) and not Defined(fpc)}
     if XMLCodepage<>CP_UTF8
     then begin
       // UTF8 -> UTF16
@@ -1666,7 +1715,7 @@ begin
     varDouble:   Result := FloatToStrA(TVarData(v).VDouble);
     varCurrency: Result := FloatToStrA(TVarData(v).VCurrency);
     varDate:     Result := DateTimeToStrA(TVarData(v).VDate);
-    varOleStr:   Result := Utf8Encode(TVarData(v).VOleStr);
+    varOleStr:   Result := Utf8Encode(WideString(TVarData(v).VOleStr));
     varBoolean:  Result := BoolStr[TVarData(v).VBoolean<>False];
     varShortInt: Result := IntToStrA(TVarData(v).VShortInt);
     varByte:     Result := CardToStrA(TVarData(v).VByte);
@@ -1677,6 +1726,8 @@ begin
     varString:   Result := UTF8Encode(AnsiString(TVarData(v).VString));
     varUString:  Result := AnsiToUtf8(String(TVarData(v).VUString));
     {$elseif defined(XML_WIDE_CHARS)}
+    varString:   Result := AnsiToUtf8(AnsiString(TVarData(v).VString));
+    {$elseif defined(fpc)}
     varString:   Result := AnsiToUtf8(AnsiString(TVarData(v).VString));
     {$else}
     varString:   Result := XMLStringToMyXMLString(AnsiString(TVarData(v).VString));
@@ -1731,6 +1782,9 @@ begin
     varString:   Result := AnsiString(UTF8ToAnsi(Data));
     varUString:  Result := UTF8ToAnsi(Data);
     {$elseif defined(XML_WIDE_CHARS)}
+    varOleStr:   Result := UTF8Decode(Data);
+    varString:   Result := UTF8ToAnsi(Data);
+    {$elseif defined(fpc)}
     varOleStr:   Result := UTF8Decode(Data);
     varString:   Result := UTF8ToAnsi(Data);
     {$else}
@@ -2305,7 +2359,11 @@ begin
   end;
 end;
 
+{$ifndef fpc}
 function NameHashKey(aName: PByte; Count: Integer): Cardinal;{$IF CompilerVersion>=18}inline;{$IFEND}
+{$ELSE}
+function NameHashKey(aName: PByte; Count: Integer): Cardinal;inline;
+{$ENDIF}
 var
   i: Integer;
 begin
@@ -2750,7 +2808,7 @@ type
     function CreateProcessingInstruction(aTargetID: NativeInt;
       const aData: TbjXmlString = ''): IbjXmlProcessingInstruction; overload;
     procedure LoadXML(const aXML: RawByteString; const Encoding: String  = ''); overload;
-    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)}
+    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode) or Defined(fpc)}
     procedure LoadXML(const aXML: TbjXmlString; const Encoding: String = ''); overload;
     {$IFEND}
 
@@ -3462,7 +3520,7 @@ begin
   if temp<>''
   then begin
     SetLength(Result, Length(temp));
-    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)}
+    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode) or Defined(fpc)}
     CopyWordToByteArray(Pointer(temp), Pointer(Result), Length(Result));
     {$ELSE}
     move(Pointer(temp)^, Pointer(Result)^, Length(Result));
@@ -3812,22 +3870,28 @@ end;
 
 function NameCanBeginWith(aChar: TbjXmlChar): Boolean;
 begin
-  {$IFDEF XML_WIDE_CHARS}
+  {$IF DEFined(XML_WIDE_CHARS)}
   Result := (aChar = '_') or IsCharAlphaW(aChar)
   {$ELSE}
-  Result := (aChar = '_') or IsCharAlpha(aChar)
+  {$ifdef fpc}
+  Result := (aChar = '_') or IsAlphaChar(aChar)
+  {$else}
+  Result := (aChar = '_') or sCharAlpha(aChar)
+  {$ENDIF}
   {$ENDIF}
 end;
 
 function NameCanContain(aChar: TbjXmlChar): Boolean;
 begin
-  {$IFDEF XML_WIDE_CHARS}
+  {$IF DEFined(XML_WIDE_CHARS)}
   Result := (aChar = '_') or (aChar = '-') or (aChar = ':') or (aChar = '.') or
     IsCharAlphaNumericW(aChar)
   {$ELSE}
-    {$IFDEF Unicode}
+    {$IF DEFined(Unicode)}
     Result := CharInSet(aChar, ['_', '-', ':', '.']) or IsCharAlphaNumeric(aChar)
-    {$ELSE}
+    {$elseif Defined(fpc)}
+    Result := (aChar in ['_', '-', ':', '.']) or IsAlphaNumericChar(aChar)
+    {$else}
     Result := (aChar in ['_', '-', ':', '.']) or IsCharAlphaNumeric(aChar)
     {$ENDIF}
   {$ENDIF}
@@ -3857,15 +3921,26 @@ end;
 
 function NameCanBeginWith4(aChar: UCS4Char): Boolean;
 begin
+  {$ifdef fpc}
+  Result := (aChar = UCS4Char('_')) or
+            ((aChar<=$FFFF) and IsAlphaChar(WideChar(aChar)));
+  {$else}
   Result := (aChar = UCS4Char('_')) or
             ((aChar<=$FFFF) and IsCharAlphaW(WideChar(aChar)));
+  {$endif}
 end;
 
 function NameCanContain4(aChar: UCS4Char): Boolean;
 begin
+  {$ifdef fpc}
+  Result := (aChar = UCS4Char('_')) or (aChar = UCS4Char('-')) or
+            (aChar = UCS4Char(':')) or (aChar = UCS4Char('.')) or
+            ((aChar<=$FFFF) and IsAlphaNumericChar(WideChar(aChar)));
+  {$else}
   Result := (aChar = UCS4Char('_')) or (aChar = UCS4Char('-')) or
             (aChar = UCS4Char(':')) or (aChar = UCS4Char('.')) or
             ((aChar<=$FFFF) and IsCharAlphaNumericW(WideChar(aChar)));
+  {$endif}
 end;
 
 const
@@ -4957,11 +5032,15 @@ function GenCDATAXML(const aValue: RawByteString): TmyXmlString;
 var
   i: Integer;
 begin
+  {$IFNDEF FPC}
   {$IF CompilerVersion<18}
   i := Pos(']]>', aValue);
   {$else}
   i := PosEx(']]>', aValue);
   {$ifend}
+  {$ELSE}
+  i := PosEx(']]>', aValue);
+  {$ENDIF}
   if i = 0 then
     Result := '<![CDATA[' + aValue + ']]>'
   else //Split aValue into several consecutive CDATA sections
@@ -5301,7 +5380,11 @@ var
 begin
   aRSRC := FindResource(HInstance, aName, aType);
   if aRSRC <> 0 then begin
+    {$ifdef fpc}
+    aGlobal := System.LoadResource(HInstance, aRSRC);
+    {$else}
     aGlobal := Windows.LoadResource(HInstance, aRSRC);
+    {$endif}
     aSize := SizeofResource(HInstance, aRSRC);
     if (aGlobal <> 0) and (aSize <> 0) then begin
       aPointer := LockResource(aGlobal);
@@ -5337,7 +5420,7 @@ begin
   end
 end;
 
-{$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)}
+{$IF Defined(XML_WIDE_CHARS) or Defined(Unicode) or Defined(fpc)}
 procedure TbjXml.LoadXML(const aXML: TbjXmlString; const Encoding: String);
 var
   aSource: TbjXmlSource;
@@ -6198,11 +6281,14 @@ begin
 end;
 
 procedure TbjXmlSaver.SetCodepage(const Value: Word);
+{$ifndef fpc}
 var
   CPInfo: TCPInfo;
+{$endif}
 begin
   if Value <> FCodepage
   then begin
+    {$ifndef fpc}
     if (Value <> CP_UTF8)
     then begin
       GetMem(fUnicodeBuffer, XMLSaverBuffersize * SizeOf(WideChar));
@@ -6213,7 +6299,9 @@ begin
       else
         RaiseLastOSError;
     end
-    else begin
+    else
+    {$endif}
+    begin
       FreeMem(fUnicodeBuffer);
       fUnicodeBuffer := nil;
       fUnicodeSize := 0;
@@ -6965,4 +7053,104 @@ begin
   end;
 end;
 
+function IsAlphaChar(ch: WideChar): boolean;
+begin
+  {$IFNDEF fpc}
+    Result := IsCharAlphaW(ch);
+  {$ELSE}
+    // TODO: add chars > 255 (or replace with libxml2 functions?)
+    case ch of
+      'A'..'Z',  // A-Z
+      'a'..'z',  // a-z
+      #170,#181,#186,
+      #192..#214,
+      #216..#246,
+      #248..#255:
+        Result := true;
+      else
+        Result := false;
+    end;
+  {$ENDIF}
+end;
+
+function IsNumericChar(ch: WideChar): boolean;
+begin
+  // TODO: replace with libxml2 functions?
+  // ignore non-arabic numerals as we do not want to handle them
+  case ch of
+    '0'..'9':
+      Result := true;
+    else
+      Result := false;
+  end;
+end;
+
+function IsAlphaNumericChar(ch: WideChar): boolean;
+begin
+  Result := (IsAlphaChar(ch) or IsNumericChar(ch));
+end;
+
+function MultiByteToWideChar(CodePage: UINT; dwFlags: DWORD;
+                             const lpMultiByteStr: LPCSTR; cchMultiByte: Integer;
+                             lpWideCharStr: LPWSTR; cchWideChar: Integer): Integer;
+{$IFNDEF fpc}
+begin
+  Result := Windows.MultiByteToWideChar(CodePage, dwFlags, lpMultiByteStr,
+                                        cchMultiByte, lpWideCharStr, cchWideChar);
+{$ELSE}
+var
+  s : string;
+  w : WideString;
+begin
+  if cchMultiByte < 0 then  {Null terminated?}
+    s := lpMultiByteStr
+  else
+    begin
+    SetLength(s, cchMultiByte);
+    Move(lpMultiByteStr^, s[1], cchMultiByte);
+    end;
+  SetLength(w, Succ(Length(s)));
+  StringToWideChar(s, PWideChar(w), Length(w));
+   {Look for terminating null to determine length of returned string}
+  Result := 0;
+  while w[Succ(Result)] <> #0 do
+   Inc(Result);
+  if cchMultiByte < 0 then  {Include terminating null too?}
+    Inc(Result);
+  if cchWideChar > 0 then  {Okay to return string?}
+    Move(w[1], lpWideCharStr^, Result*2);  {Assume dest. buffer has enough space}
+{$ENDIF}
+end;
+
+function WideCharToMultiByte(CodePage: UINT; dwFlags: DWORD;
+                             lpWideCharStr: LPWSTR; cchWideChar: Integer;
+                             lpMultiByteStr: LPSTR; cchMultiByte: Integer;
+                             lpDefaultChar: LPCSTR; lpUsedDefaultChar: PBOOL): Integer;
+{$IFnDEF fpc}
+begin
+  Result := Windows.WideCharToMultiByte(CodePage, dwFlags, lpWideCharStr,
+                                        cchWideChar, lpMultiByteStr, cchMultiByte,
+                                        lpDefaultChar, lpUsedDefaultChar);
+{$ELSE}
+var
+  w : WideString;
+  s : string;
+begin
+  if cchWideChar < 0 then  {Null terminated?}
+    w := lpWideCharStr
+  else  {Specifies number of wide chars to convert}
+    begin
+    SetLength(w, cchWideChar);
+    Move(lpWideCharStr^, w[1], cchWideChar*2);
+    end;
+  s := WideCharToString(PWideChar(w));
+  Result := Length(s);
+  if cchWideChar < 0 then  {Include terminating null too?}
+    Inc(Result);
+  if cchMultiByte > 0 then  {Okay to return string?}
+    Move(s[1], lpMultiByteStr^, Result);  {Assume dest. buffer has enough space}
+{$ENDIF}
+end;
+
 end.
+
