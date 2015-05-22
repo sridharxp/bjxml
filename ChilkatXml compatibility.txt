@@ -1,7 +1,0 @@
-Implemented
-        SearchForTag
-
-Implemented with a different name
-
-New
-        GotoTag

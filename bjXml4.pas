@@ -118,7 +118,7 @@ SimpleXML - By Michael Vlasov. Library for XML parsing and convertion to
    -----------------------------------------------------------------------------------------------
 Based on Version 2013-04-16
 }
-unit bjxml3_1;
+unit bjxml4;
 
 {$IFDEF FPC}
   {$MODE Delphi}
@@ -149,7 +149,7 @@ Some Helper Functions like those in Chilkat
 }
 
 uses
-  SysUtils, Classes, Types,
+  SysUtils, Classes, Types, Dialogs,
 {$IFnDEF FPC}
   Windows;
 {$ELSE}
@@ -209,7 +209,7 @@ type
     {$ELSE}
     PXmlChar = PChar;
     TbjXmlChar = Char;
-    TbjXmlString = UTF8String;
+    TbjXmlString = String;
     {$ENDIF}
     {$ENDIF}
   {$ELSE}
@@ -736,7 +736,7 @@ var
   DefaultIndentText: TmyXmlString = #9;
   XMLPathDelimiter: TbjXmlString = '\';
 
-  {$if not defined(XML_WIDE_CHARS) and not defined(Unicode) and not Defined(fpc)}
+  {$if not defined(XML_WIDE_CHARS) and not defined(Unicode) and not defined(fpc)}
 
   // Codepage for TbjXmlString if it is AnsiString
   // !!! do not change if you have one or more open XMLDocuments !!!
@@ -779,6 +779,7 @@ function RHopNode(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
 function IsAlphaChar(ch: WideChar): boolean;
 function IsNumericChar(ch: WideChar): boolean;
 function IsAlphaNumericChar(ch: WideChar): boolean;
+
 function MultiByteToWideChar(CodePage: UINT; dwFlags: DWORD;
                              const lpMultiByteStr: LPCSTR; cchMultiByte: Integer;
                              lpWideCharStr: LPWSTR; cchWideChar: Integer): Integer;
@@ -1217,9 +1218,11 @@ begin
   SrcCount := Length(src);
   if (SrcCount<>0)
   then begin
-    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)or Defined(fpc)}
+    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)}
     // UTF16 -> UTF8
     Result := UTF8Encode(src);
+    {$elseif defined(fpc)}
+    Result := src;
     {$else}
     if XMLCodepage<>CP_UTF8
     then begin
@@ -1285,7 +1288,7 @@ begin
     {$endif}
     {$ifdef fpc}
     // UTF8 -> UTF16
-    Result := UTF8Decode(src);
+    Result := src;
     {$endif}
     {$IF not Defined(XML_WIDE_CHARS) and not Defined(Unicode) and not Defined(fpc)}
     if XMLCodepage<>CP_UTF8
@@ -2808,7 +2811,7 @@ type
     function CreateProcessingInstruction(aTargetID: NativeInt;
       const aData: TbjXmlString = ''): IbjXmlProcessingInstruction; overload;
     procedure LoadXML(const aXML: RawByteString; const Encoding: String  = ''); overload;
-    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode) or Defined(fpc)}
+    {$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)}
     procedure LoadXML(const aXML: TbjXmlString; const Encoding: String = ''); overload;
     {$IFEND}
 
@@ -5420,7 +5423,7 @@ begin
   end
 end;
 
-{$IF Defined(XML_WIDE_CHARS) or Defined(Unicode) or Defined(fpc)}
+{$IF Defined(XML_WIDE_CHARS) or Defined(Unicode)}
 procedure TbjXml.LoadXML(const aXML: TbjXmlString; const Encoding: String);
 var
   aSource: TbjXmlSource;
@@ -7099,7 +7102,7 @@ begin
                                         cchMultiByte, lpWideCharStr, cchWideChar);
 {$ELSE}
 var
-  s : string;
+  s : TbjXmlString;
   w : WideString;
 begin
   if cchMultiByte < 0 then  {Null terminated?}
@@ -7134,7 +7137,7 @@ begin
 {$ELSE}
 var
   w : WideString;
-  s : string;
+  s : TbjXmlString;
 begin
   if cchWideChar < 0 then  {Null terminated?}
     w := lpWideCharStr
