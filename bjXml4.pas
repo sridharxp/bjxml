@@ -779,7 +779,7 @@ function RHopNode(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
 function IsAlphaChar(ch: WideChar): boolean;
 function IsNumericChar(ch: WideChar): boolean;
 function IsAlphaNumericChar(ch: WideChar): boolean;
-
+(*
 function MultiByteToWideChar(CodePage: UINT; dwFlags: DWORD;
                              const lpMultiByteStr: LPCSTR; cchMultiByte: Integer;
                              lpWideCharStr: LPWSTR; cchWideChar: Integer): Integer;
@@ -787,7 +787,7 @@ function WideCharToMultiByte(CodePage: UINT; dwFlags: DWORD;
                              lpWideCharStr: LPWSTR; cchWideChar: Integer;
                              lpMultiByteStr: LPSTR; cchMultiByte: Integer;
                              lpDefaultChar: LPCSTR; lpUsedDefaultChar: PBOOL): Integer;
-
+*)
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 
 implementation
@@ -1376,7 +1376,11 @@ begin
     then
       Result := Result * 10 + c
     else
+    {$ifndef fpc}
       raise Exception.CreateFmt(SInvalidInteger, [UTF8ToAnsi(s)]);
+    {$else}
+    raise Exception.CreateFmt(SInvalidInteger, [s]);
+    {$endif}
     inc(P);
   end;
   if neg
@@ -1400,7 +1404,11 @@ begin
     then
       Result := Result * 10 + Cardinal(c)
     else
+    {$ifndef fpc}
       raise Exception.CreateFmt(SInvalidInteger, [UTF8ToAnsi(s)]);
+    {$else}
+    raise Exception.CreateFmt(SInvalidInteger, [s]);
+    {$endif}
     inc(P);
   end;
 end;
@@ -1428,7 +1436,11 @@ begin
     then
       c := SmallInt(P^) - ord('a') + 10
     else
+    {$ifndef fpc}
       raise Exception.CreateFmt(SInvalidInteger, [UTF8ToAnsi(s)]);
+    {$else}
+    raise Exception.CreateFmt(SInvalidInteger, [s]);
+    {$endif}
     Result := Result * 16 + Cardinal(c);
     inc(P);
   end;
@@ -1456,7 +1468,11 @@ begin
     then
       Result := Result * 10 + c
     else
+    {$ifndef fpc}
       raise Exception.CreateFmt(SInvalidInteger, [UTF8ToAnsi(s)]);
+    {$else}
+    raise Exception.CreateFmt(SInvalidInteger, [s]);
+    {$endif}
     inc(P);
   end;
   if neg
@@ -3202,7 +3218,11 @@ procedure TbjXmlNodeList.ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
           aXML.Codepage := FindCodepage(EncodingData.Value);
           if aXML.Codepage=0
           then
+            {$ifndef fpc}
             raise Exception.CreateFmt(SSimpleXmlError26, [UTF8ToAnsi(EncodingData.Value)]);
+            {$else}
+            raise Exception.CreateFmt(SSimpleXmlError26, [EncodingData.Value]);
+            {$endif}
         end
         else
           aXML.SetCodepage(CP_UTF8);
@@ -5502,7 +5522,11 @@ begin
         XMLSaver.Codepage := FindCodepage(EncodingData.Value);
         if XMLSaver.Codepage=0
         then
+          {$ifndef fpc}
           raise Exception.CreateFmt(SSimpleXmlError26, [UTF8ToAnsi(EncodingData.Value)]);
+          {$else}
+          raise Exception.CreateFmt(SSimpleXmlError26, [EncodingData.Value]);
+          {$endif}
       end;
     end;
     SaveXML(XMLSaver);
@@ -5687,6 +5711,7 @@ function TbjXmlSource.Next: Boolean;
         FBufSize := FStream.Read(FBuffer^, 1);
       end
       else
+      {$ifndef fpc}
       if f8BitBufferCoding
       then begin
         FBufSize := FStream.Read(FBuffer^, SourceBufferSize);
@@ -5705,6 +5730,9 @@ function TbjXmlSource.Next: Boolean;
         // Ansi -> UTF16
         FBufSize := MultiByteToWideChar(Codepage, 0, @TempSrc, Size, Pointer(FBuffer), SourceBufferSize div 2);
       end;
+      {$else}
+      FBufSize := FStream.Read(FBuffer^, SourceBufferSize);
+      {$endif}
       FBufPtr := FBuffer;
       Result := FBufSize>0;
     end
@@ -5938,7 +5966,11 @@ begin
     end;
     if (CurChar <> TextChar) or EOF
     then
+      {$ifndef fpc}
       raise Exception.CreateFmt(SSimpleXmlError17, [UTF8toAnsi(aText), FSourceLine, FSourceCol]);
+      {$else}
+      raise Exception.CreateFmt(SSimpleXmlError17, [aText, FSourceLine, FSourceCol]);
+      {$endif}
     Next;
   end;
 end;
@@ -6058,7 +6090,11 @@ begin
         aCheck := Pointer(aText);
     end;
   end;
+  {$ifndef fpc}
   raise Exception.CreateFmt(SSimpleXmlError22, [UTF8toAnsi(aText), FSourceLine, FSourceCol]);
+  {$else}
+  raise Exception.CreateFmt(SSimpleXmlError22, [aText, FSourceLine, FSourceCol]);
+  {$endif}
 end;
 
 function CalcUTF8Len(c: AnsiChar): Integer;
@@ -6257,6 +6293,7 @@ begin
   end;
   if (UTF8Size<>0)
   then begin
+    {$ifndef fpc}
     if Codepage<>CP_UTF8
     then begin
       if UTF8Size>fUnicodeSize
@@ -6278,6 +6315,9 @@ begin
     else begin
       move(UTF8Data^, fAnsiPtr^, Count);
     end;
+    {$else}
+    move(UTF8Data^, fAnsiPtr^, Count);
+    {$endif}
     inc(fAnsiPtr, Count);
     dec(FRemain, Count);
   end;
@@ -7092,7 +7132,7 @@ function IsAlphaNumericChar(ch: WideChar): boolean;
 begin
   Result := (IsAlphaChar(ch) or IsNumericChar(ch));
 end;
-
+(*
 function MultiByteToWideChar(CodePage: UINT; dwFlags: DWORD;
                              const lpMultiByteStr: LPCSTR; cchMultiByte: Integer;
                              lpWideCharStr: LPWSTR; cchWideChar: Integer): Integer;
@@ -7154,6 +7194,6 @@ begin
     Move(s[1], lpMultiByteStr^, Result);  {Assume dest. buffer has enough space}
 {$ENDIF}
 end;
-
+*)
 end.
 
