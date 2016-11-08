@@ -6716,11 +6716,9 @@ end;
 function TbjXml.GetFirstChild: IbjXml;
 var
   aChilds: TbjXmlNodeList;
-//  aNode: IbjXml;
 begin
   Result := nil;
   aChilds := GetChilds;
-//if achilds.FCount >= 0 then
   if achilds.FCount > 0 then
   begin
 //    aNode := aChilds.Get_Item(0);
