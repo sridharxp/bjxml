@@ -6721,9 +6721,6 @@ begin
   aChilds := GetChilds;
   if achilds.FCount > 0 then
   begin
-//    aNode := aChilds.Get_Item(0);
-//    if Assigned(aNode) then
-//      Result :=  aNode;
       Result :=  aChilds.Get_Item(0);
   end;
 end;
