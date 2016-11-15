@@ -639,11 +639,11 @@ type
     // aName = <Name of child>: Gets/Sets the TypedValue of a child
     // aName = @<Name of attribute>: Gets/sets the TypedValue of a attribute
     property Values[const aName: TbjXmlString]: Variant read Get_Values write Set_Values; default;
-    property PreserveWhiteSpace: Boolean read Get_PreserveWhiteSpace write Set_PreserveWhiteSpace;
+//    property PreserveWhiteSpace: Boolean read Get_PreserveWhiteSpace write Set_PreserveWhiteSpace;
     property DocumentElement: IbjXmlElement read Get_DocumentElement;
     property BinaryXML: TBytes read Get_BinaryXML;
-    property OnTagBegin: THookTag read Get_OnTagBegin write Set_OnTagBegin;
-    property OnTagEnd: THookTag read Get_OnTagEnd write Set_OnTagEnd;
+//    property OnTagBegin: THookTag read Get_OnTagBegin write Set_OnTagBegin;
+//    property OnTagEnd: THookTag read Get_OnTagEnd write Set_OnTagEnd;
 
     property Tag: TbjXmlString read GetTag;
     property Parent: IbjXml read GetParent;
@@ -2795,6 +2795,10 @@ type
     constructor CreateNode(aNames: TbjXmlNameTable);
     constructor Create(aNames: TbjXmlNameTable=nil);
     destructor Destroy; override;
+
+    property PreserveWhiteSpace: Boolean read Get_PreserveWhiteSpace write Set_PreserveWhiteSpace;
+    property OnTagBegin: THookTag read Get_OnTagBegin write Set_OnTagBegin;
+    property OnTagEnd: THookTag read Get_OnTagEnd write Set_OnTagEnd;
   end;
 
   TbjXmlDataNode = class;
