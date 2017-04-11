@@ -1691,7 +1691,7 @@ begin
         end
       end;
     else
-      Result := AnsiToUtf8(v);
+      Result := AnsiToUtf8(AnsiString(v));
   end;
 end;
 

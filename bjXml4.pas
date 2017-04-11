@@ -422,6 +422,7 @@ type
     // RemoveAllChilds - удаляет все дочерние узлы
     procedure RemoveAllChilds;
 
+    function FindNodes(const anExpression: TbjXmlString): IbjXmlNodeList;
     // SelectNodes - производит выборку узлов, удовлетворяющих
     //  указанным критериям
     // SelectNodes - fetches nodes satisfying
@@ -638,7 +639,6 @@ type
     function GetAttrValue(const aName: TbjXmlString): TbjXmlString;
     function GetChildContent(const aName: TbjXmlString): TbjXmlString;
     function SearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString): IbjXml;
-    function GoToTag(const aName: TbjXmlString): IbjXml;
     function GetNumChildren: integer;
     function GetChild(const index: Integer): IbjXml;
     function GetNextSibling: IbjXml;
@@ -768,11 +768,9 @@ function PrepareToLoadXml(var anElem: IbjXmlElement; const aChildName: String): 
 
 procedure GetCodingNameList(List: TStrings);
 
-function RSearchForTag(aNode: IbjXml; const fromwhere: IbjXml;
-                       const aName: TbjXmlString; var found: boolean): IbjXml;
-function RGoToTag(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
+//function RGoToTag(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
 
-function RHopNode(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
+//function RHopNode(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
 
 //procedure MoveTag (Const aSource: IbjXml; aDestination: IbjXml);
 
@@ -1763,7 +1761,7 @@ begin
         end
       end;
     else
-      Result := AnsiToUtf8(v);
+      Result := AnsiToUtf8(AnsiString(v));
   end;
 end;
 
@@ -2715,6 +2713,7 @@ type
 
     procedure RemoveAllChilds;
 
+    function FindNodes(const anExpression: TbjXmlString): IbjXmlNodeList;
     function SelectNodes(const anExpression: TbjXmlString): IbjXmlNodeList;
     function SelectSingleNode(const anExpression: TbjXmlString): IbjXml;
     function FullPath: TbjXmlString;
@@ -2858,7 +2857,6 @@ type
     function AddAttribute(const aName: TbjXmlString; const aText: TbjXmlString): integer;
     function GetChildwithTag(const aName: TbjXmlString): IbjXml;
     function SearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString): IbjXml;
-    function GoToTag(const aName: TbjXmlString): IbjXml;
     function GetNumChildren: integer;
     function GetChild(const index: Integer): IbjXml;
     function GetNextSibling: IbjXml;
@@ -3993,7 +3991,37 @@ type
   end;
 
 
+function TbjXml.FindNodes(const anExpression: TbjXmlString): IbjXmlNodeList;
+var
+  aNodes: TbjXmlNodeList;
+  aChilds: TbjXmlNodeList;
+  aChild: TbjXml;
+  i:integer;
+               procedure FindSubNode(aNode: TbjXml);
+               var
+               x: Integer;
+               aSubChilds: TbjXmlNodeList;
+               begin
+                   if aNode.Get_NodeName=anExpression then
+                   begin
+                     aNodes.Insert(aNode, aNodes.FCount);
+                   end;
 
+                  aSubChilds := aNode.GetChilds;
+                  for x:=0 to aSubChilds.FCount-1 do
+                  begin
+                    FindSubNode(aSubChilds.FItems[x]);
+                  end;
+               end;
+begin
+    aNodes := TbjXmlNodeList.Create(Self);
+    Result := aNodes;
+    aChilds := GetChilds;
+    for i := 0 to aChilds.FCount - 1 do begin
+      aChild := aChilds.FItems[i];
+      FindSubNode(aChild);
+    end;
+end;
 function TbjXml.SelectNodes(const anExpression: TbjXmlString): IbjXmlNodeList;
 var
   aNodes: TbjXmlNodeList;
@@ -6778,50 +6806,51 @@ function TbjXml.SearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString)
 var
 aNode: IbjXml;
 isfromroot: boolean;
-begin
-  aNode := IbjXml(self);
-  if assigned(fromwhere) then
-  isfromroot := False
-  else
-  isfromroot := True;
-  Result := RSearchForTag(aNode, fromwhere, aName, isfromroot);
 //aNode._Release;
 //  mynode.Get_ownerdocument;
-end;
 
-function TbjXml.GoToTag(const aName: TbjXmlString): IbjXml;
+  function SearchNode(aNode: IbjXml; var Found: boolean): IbjXml;
 // Find the first node which has name NodeName. Contrary to the NodeByName
 // function, this function will search the whole subnode tree, using the
 // DepthFirst method.
 var
-  aNode: IbjXml;
-  Done: boolean;
+    i: integer;
+    aChilds: IbjXmlNodeList;
   aNameID: NativeInt;
 begin
-  Done := False;
-  aNode := IbjXml(self);
-  Result := RGoToTag(aNode, aName);
-  aNameID := Get_NameTable.GetID(aName);
-  while not done do
+    aChilds := aNode.ChildNodes;
+    aNameID := (aNode.GetObject as TbjXml).FNames.GetID(aName);
+  //  aNameID := aNode.NameTable.GetID(aName);
+    Result := nil;
+    for i := 0 to aChilds.Count - 1 do
   begin
-    if Assigned(Result) then
-      exit;
-    if not Assigned(Result) then
-    begin
-      aNode := RHopNode(aNode, aName);
+      aNode := aChilds.Get_Item(i);
+      if not found then
+        if aNode = fromwhere then
+          found := True;
+      if found then
+  //    if mynode.NodeName = NodeName then
       if aNode.Get_NodeNameID = aNameID then
+          if  aNode <> fromwhere then
       begin
         Result := aNode;
         exit;
       end;
-      if not Assigned(aNode) then
+      aNode := SearchNode(aNode, Found);
+      if assigned(aNode) then
       begin
-        Done := True;
-        continue;
+          Result := aNode;
+          exit;
       end;
     end;
-    Result := RGoToTag(aNode, aName);
   end;
+begin
+  aNode := IbjXml(self);
+  if assigned(fromwhere) then
+  isFromRoot := False
+  else
+  isFromRoot := True;
+  Result := SearchNode(aNode, isFromRoot);
 end;
 
 function TbjXml.GetNumChildren: integer;
@@ -7004,101 +7033,6 @@ end;
 
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 
-function RSearchForTag(aNode: IbjXml; const fromwhere: IbjXml;
-                       const aName: TbjXmlString; var found: boolean): IbjXml;
-// Find the first node which has name NodeName. Contrary to the NodeByName
-// function, this function will search the whole subnode tree, using the
-// DepthFirst method.
-var
-  i: integer;
-  aChilds: IbjXmlNodeList;
-  aNameID: NativeInt;
-begin
-  aChilds := aNode.ChildNodes;
-  aNameID := (aNode.GetObject as TbjXml).FNames.GetID(aName);
-//  aNameID := aNode.NameTable.GetID(aName);
-  Result := nil;
-// Loop through all subnodes
-  for i := 0 to aChilds.Count - 1 do
-  begin
-    aNode := aChilds.Get_Item(i);
-    if not found then
-      if aNode = fromwhere then
-        found := True;
-    if found then
-//    if mynode.NodeName = NodeName then
-      if aNode.Get_NodeNameID = aNameID then
-//    if aNode.Tag = aName then
-        if  aNode <> fromwhere then
-        begin
-          Result := aNode;
-          exit;
-        end;
-//    aNode._Release;
-// If not, we will search the subtree of this node
-    aNode := RSearchForTag(aNode, fromwhere, aName, found);
-    if assigned(aNode) then
-      begin
-        Result := aNode;
-        exit;
-    end;
-  end;
-end;
-
-function RGoToTag(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
-var
-  i: integer;
-  aChilds: IbjXmlNodeList;
-  aNameID: NativeInt;
-begin
-  aChilds := aNode.ChildNodes;
-//  aNameID := Get_NameTable.GetID(aName);
-  aNameID := (aNode.GetObject as TbjXml).FNames.GetID(aName);
-  Result := nil;
-// Loop through all subnodes
-  for i := 0 to aChilds.Count - 1 do
-  begin
-    Result := aChilds.Get_Item(i);
-//    if mynode.NodeName = NodeName then
-    if Result.Get_NodeNameID = aNameID then
-      exit;
-// If not, we will search the subtree of this node
-    Result := RGoToTag(Result, aName);
-    if assigned(Result) then
-      exit;
-  end;
-end;
-
-function RHopNode(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
-var
-  i: integer;
-  aChilds: IbjXmlNodeList;
-  checknode: IbjXml;
-  Done: boolean;
-begin
-  Done := False;
-  while not Done do
-  begin
-    CheckNode := aNode;
-    aNode := aNode.GetParent;
-    if aNode.Get_NodeName = '#document' then
-      exit;
-    aChilds := aNode.ChildNodes;
-    for i := 0 to aChilds.Count - 1 do
-      if aChilds.Get_Item(i) <> CheckNode then
-         continue
-       else
-       if (aChilds.Count-1 > i) then
-       begin
-         Result := aChilds.Get_Item(i+1);
-         exit;
-       end;
-    aNode := Result.GetParent;
-    if aNode.Get_NodeName = '#document' then
-      exit;
-//      ShowMessage(anode.Get_NodeName);
-  end;
-end;
 
 function IsAlphaChar(ch: WideChar): boolean;
 begin
