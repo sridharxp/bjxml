@@ -4931,6 +4931,11 @@ begin
       begin
         aChildsXML := '';
         aChildsXML := rGrandChilds[j].Get_JSN;
+        if Length(Trim(aChildsXML)) = 0 then
+        begin
+        aTag := rGrandChilds[j].NodeName;
+        aItems := aItems + #13#10 + GetIndentStr(aXMLIndent) + TextTojsoN(aTag) + ': ' + '""' + ',';
+        end;
         aItems := aItems + GetIndentStr(aXMLIndent) + aChildsXML;
       end;
       aItems := RemoveTrailingComma(aItems);
