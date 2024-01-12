@@ -153,7 +153,7 @@ const
   BinXmlSignature: UTF8String = '< binary-xml >';
 
 //  DefaultHashSize = 499;
-  DefaultHashSize = 1009;
+  DefaultHashSize = 4099;
 
   {$ifndef Unicode}
   // For Delphi prior Delphi 2009 you can chose the codepage used for TbjXmlString.
@@ -261,10 +261,12 @@ type
     procedure Exchange(Index1, Index2: Integer);
     // Get_XML - возвращает представление элементов списка в формате XML
     function Get_XML: TbjXmlString;
+    function Get_JSN: TbjXmlString;
 
     property Count: Integer read Get_Count;
     property Item[anIndex: Integer]: IbjXml read Get_Item; default;
     property XML: TbjXmlString read Get_XML;
+    property JSON: TbjXmlString read Get_JSN;
   end;
 
   THookTag = procedure(Sender: TObject; const aNode: IbjXml) of object;
@@ -611,6 +613,7 @@ type
     function GetAttrValue(const aName: TbjXmlString): TbjXmlString;
     function GetChildContent(const aName: TbjXmlString): TbjXmlString;
     function SearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString): IbjXml;
+    function BFSearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString): IbjXml;
     function GetNumChildren: integer;
     function GetChild(const index: Integer): IbjXml;
     function GetNextSibling: IbjXml;
@@ -620,7 +623,14 @@ type
     function GetXML: TbjXmlString;
     function GetArrayMode: Boolean;
     procedure SetArrayMode(aType: Boolean);
-    function Get_ArrayNodes(aName: TbjXmlString; IsIncludeOn: Boolean = True): IbjXmlNodeList;
+    function GetJSON: TbjXmlString;
+    function Get_JSN: TbjXmlString;
+    function GetArrayNodes(aName: TbjXmlString; IsIncludeOn: Boolean = True): IbjXmlNodeList;
+    procedure SaveJSONFile(const aFileName: String); overload;
+    function GetChildNodes: IbjXmlNodeList;
+    function ShortenTree(aDeep: Boolean = True): IbjXml;
+    function GetQuotedMode: Boolean;
+    procedure SetQuotedMode(aType: Boolean);
 
     property NodeName: TbjXmlString read Get_NodeName;
     property NodeNameID: NativeInt read Get_NodeNameID;
@@ -658,6 +668,8 @@ type
     property Content: TbjXmlString read GetContent write SetContent;
     property NumChildren: integer read GetNumChildren;
     property ISArrayTag: Boolean read GetArrayMode write SetArrayMode;
+    property ISQuoted: Boolean read GetQuotedMode write SetQuotedMode;
+    property JSON: TbjXmlString read Get_JSN;
   end;
 
   IbjXmlElement = interface(IbjXml)
@@ -747,7 +759,10 @@ procedure GetCodingNameList(List: TStrings);
 //function RGoToTag(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
 //function RHopNode(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
 //procedure MoveTag (Const aSource: IbjXml; aDestination: IbjXml);
+function TextTojsoN(const aText: TmyXmlString; const aMode: Boolean=True): TmyXmlString;
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
+const
+DiArrItemTag: TbjXmlString = '_Item';
 
 implementation
 
@@ -1460,6 +1475,17 @@ begin
   end;
 end;
 
+function TextToJSON(const aText: TmyXmlString; const aMode: Boolean=True): TmyXmlString;
+begin
+  Result := aText;
+  if Length(aText) = 0 then
+  begin
+    Result := '""';
+    Exit;
+  end;
+  if aMode then
+    Result := '"' + aText + '"';
+end;
 function ReplaceControlChars(const aText: TMyXMLString): TMyXMLString;
 const
   cLowerThan: PAnsiChar = '&lt;';
@@ -2487,6 +2513,7 @@ type
     procedure AppendTokenText(aText: PmyXMLChar; aCount: Integer);
     function AcceptToken: TmyXMLString;
     procedure DropToken;
+    function ExpecTbjJSNName: TmyXMLString;
     property Codepage: Word read FCodepage write SetCodepage;
   end;
 
@@ -2534,6 +2561,8 @@ type
     function Get_Item(anIndex: Integer): IbjXml;
     function Get_myXML: TmyXmlString;
     function Get_XML: TbjXmlString;
+    function Get_myJSN: TmyXmlString;
+    function Get_JSN: TbjXmlString;
   public
     constructor Create(anOwnerNode: TbjXml);
     destructor Destroy; override;
@@ -2584,6 +2613,7 @@ type
     FOnTagBegin: THookTag;
     FPreserveWhiteSpace: Boolean;
     FIsArrayTag: Boolean;
+    FIsQuoted: Boolean;
 
     function GetChilds: TbjXmlNodeList; virtual;
     function FindFirstChild(aNameID: NativeInt): TbjXml;
@@ -2601,6 +2631,7 @@ type
 
 //    function DoCloneNode(aDeep: Boolean): IbjXml; override;
     function DoCloneNode(aDeep: Boolean): IbjXml; virtual;
+    function DoShortenTree(aDeep: Boolean): IbjXml; virtual;
   protected
     // IbjXml
     function Get_NameTable: IbjXmlNameTable;
@@ -2612,6 +2643,7 @@ type
     function Get_Text: TbjXmlString;
     procedure Set_Text(const aValue: TbjXmlString);
     function CloneNode(aDeep: Boolean): IbjXml;
+    function ShortenTree(aDeep: Boolean): IbjXml;
 
     procedure LoadBinXml(aReader: TBinXmlReader);
     procedure SaveBinXml(aWriter: TBinXmlWriter);
@@ -2803,6 +2835,7 @@ type
     function AddAttribute(const aName: TbjXmlString; const aText: TbjXmlString): integer;
     function GetChildwithTag(const aName: TbjXmlString): IbjXml;
     function SearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString): IbjXml;
+    function BFSearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString): IbjXml;
     function GetNumChildren: integer;
     function GetChild(const index: Integer): IbjXml;
     function GetNextSibling: IbjXml;
@@ -2815,7 +2848,14 @@ type
 //    procedure Prune(aName: TbjXmlString);
     function GetArrayMode: Boolean;
     procedure SetArrayMode(aType: Boolean);
-    function Get_ArrayNodes(aName: TbjXmlString; IsIncludeOn: Boolean = True): IbjXmlNodeList;
+    function GetJSON: TbjXmlString;
+    function Get_JSN: TbjXmlString;
+    function Get_myJSN: TmyXmlString; virtual;
+    function GetArrayNodes(aName: TbjXmlString; IsIncludeOn: Boolean = True): IbjXmlNodeList;
+    procedure SaveJSONFile(const aFileName: String); overload;
+    function GetChildNodes: IbjXmlNodeList; virtual;
+    function GetQuotedMode: Boolean; virtual;
+    procedure SetQuotedMode(aType: Boolean); virtual;
   public
     constructor CreateNode(aNames: TbjXmlNameTable);
     constructor Create(aNames: TbjXmlNameTable=nil);
@@ -2836,6 +2876,7 @@ type
     procedure RemoveTextNodes;
     procedure SetNodeNameID(aValue: Integer); override;
     function DoCloneNode(aDeep: Boolean): IbjXml; override;
+    function DoShortenTree(aDeep: Boolean): IbjXml; override;
     function Get_DataNode(Clean: Boolean=False): TbjXmlDataNode;
   protected
     function Get_NodeNameID: NativeInt; override;
@@ -2848,6 +2889,7 @@ type
     function Get_myXML: TmyXmlString; override;
     function AsElement: IbjXmlElement; override;
     procedure SaveXML(aXMLSaver: TbjXmlSaver); override;
+    function Get_myJSN: TMyXmlString; override;
 
     // IbjXmlElement
     procedure ReplaceTextByCDATASection(const aText: TbjXmlString);
@@ -2886,11 +2928,15 @@ type
   TbjXmlText = class(TbjXmlDataNode, IbjXmlText)
   private
     function DoCloneNode(aDeep: Boolean): IbjXml; override;
+    function DoShortenTree(aDeep: Boolean): IbjXml; override;
   protected
     function Get_NodeNameID: NativeInt; override;
     function Get_myXML: TmyXmlString; override;
     function AsText: IbjXmlText; override;
+    function Get_myJSN: TmyXmlString; override;
   public
+    constructor Create(aNames: TbjXmlNameTable; const aData: TmyXmlString;
+      const aMode:Boolean = True);
   end;
 
   TbjXmlCDATASection = class(TbjXmlDataNode, IbjXmlCDATASection)
@@ -3016,6 +3062,14 @@ begin
     Result := Result + FItems[i].Get_myXML;
 end;
 
+function TbjXmlNodeList.Get_myJSN: TmyXmlString;
+var
+  i: Integer;
+begin
+  Result := '';
+  for i := 0 to FCount - 1 do
+    Result := Result + FItems[i].Get_myJSN;
+end;
 function TbjXmlNodeList.Get_Count: Integer;
 begin
   if Self<>nil
@@ -3119,6 +3173,10 @@ begin
   Result := MyXMLStringToXMLString(Get_myXML);
 end;
 
+function TbjXmlNodeList.Get_JSN: TbjXmlString;
+begin
+  Result := MyXMLStringToXMLString(Get_myJSN);
+end;
 procedure TbjXmlNodeList.ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
                                 HookTagBegin, HookTagEnd: THookTag;
                                 aPreserveWhiteSpace: Boolean);
@@ -3438,6 +3496,10 @@ begin
   Result := GetChilds
 end;
 
+function TbjXml.GetChildNodes: IbjXmlNodeList;
+begin
+  Result := GetChilds
+end;
 function TbjXml.Get_DataType: TVarType;
 begin
   Result := NativeVarType;
@@ -3897,11 +3959,30 @@ begin
             ((aChar<=$FFFF) and IsCharAlphaNumericW(WideChar(aChar)));
 end;
 
-function NameCanContain3(aChar: UCS4Char): Boolean;
+function NameCanContain4S(aChar: UCS4Char): Boolean;
+begin
+  Result := (aChar = UCS4Char('_')) or (aChar = UCS4Char('-')) or
+            (aChar = UCS4Char('.')) or (aChar = UCS4Char(' ')) or
+            ((aChar<=$FFFF) and IsCharAlphaNumericW(WideChar(aChar)));
+end;
+function NameCanContain4Q(aChar: UCS4Char): Boolean;
 begin
   Result := (aChar = UCS4Char('_')) or (aChar = UCS4Char('-')) or
             (aChar = UCS4Char('.')) or
             ((aChar<=$FFFF) and IsCharAlphaNumericW(WideChar(aChar)));
+end;
+function RemoveTrailingComma(aStr: TbjXmlString): TbjXmlString;
+var
+  rLen: Integer;
+begin
+  rLen := Length(aStr);
+  if rLen < 1 then
+    Exit;
+  if aStr[rlen] = ',' then
+    SetLength(aStr, rLen-1);
+  if (aStr[rlen-1] = #10) and (aStr[rlen-2] = #13) then
+    SetLength(aStr, rLen-3);
+  Result := aStr
 end;
 
 const
@@ -3933,12 +4014,14 @@ var
   aChilds: TbjXmlNodeList;
   aChild: TbjXml;
   i:integer;
+  aNameID: NativeInt;
                procedure FindSubNode(aNode: TbjXml);
                var
                x: Integer;
                aSubChilds: TbjXmlNodeList;
                begin
-                   if aNode.Get_NodeName=anExpression then
+//    if aNode.Get_NodeName=anExpression then
+    if aNode.Get_NodeNameid=aNameID then
                    begin
                      aNodes.Insert(aNode, aNodes.FCount);
                    end;
@@ -3950,6 +4033,7 @@ var
                   end;
                end;
 begin
+  aNameID := FNames.GetID(anExpression);
     aNodes := TbjXmlNodeList.Create(Self);
     Result := aNodes;
     aChilds := GetChilds;
@@ -4430,6 +4514,10 @@ begin
   Result := myXMLStringToXMLString(Get_myXML);
 end;
 
+function TbjXml.Get_JSN: TbjXmlString;
+begin
+  Result := myXMLStringToXMLString(Get_myJSN);
+end;
 procedure TbjXml.Set_Values(const aName: TbjXmlString; const aValue: Variant);
 var
   aChild: IbjXml;
@@ -4555,6 +4643,10 @@ end;
 function TbjXml.CloneNode(aDeep: Boolean): IbjXml;
 begin
   Result := DoCloneNode(aDeep)
+end;
+function TbjXml.ShortenTree(aDeep: Boolean): IbjXml;
+begin
+  Result := DoShortenTree(aDeep)
 end;
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 {$IFDEF Regions}{$REGION 'XML Element Implementation'}{$ENDIF}
@@ -4770,6 +4862,102 @@ begin
   end;
 end;
 
+function TbjXmlElement.Get_myJSN: TmyXmlString;
+var
+  aChildsXML: TmyXmlString;
+  aTag, pTag, gpTag: TmyXmlString;
+  aXMLIndent: Integer;
+  i, j: Integer;
+  rArrChilds: IbjXmlNodeList;
+  rGrandChilds: IbjXmlNodeList;
+  aItems: TmyXmlString;
+  rObjBegin, rObjEnd: TmyXmlString;
+  rArrBegin, rArrEnd: TmyXmlString;
+begin
+  Result := '';
+  rObjBegin := ': {';
+  rObjEnd := '}';
+  rArrBegin := ':[';
+    rArrEnd := #13#10']';
+  if not Assigned(FChilds) or (FChilds.FCount = 0) then
+    Exit;
+  aXMLIndent := GeTbjXmlIndent;
+  gpTag := TextTojsoN(FNames.GetmyXMLName(FNameID));
+  for i:= 0 to FChilds.FCount-1 do
+  begin
+    rGrandChilds := FChilds.Get_Item(i).ChildNodes;
+    if rGrandChilds.Count = 0 then
+    begin
+      aTag := FNames.GetmyXMLName(FNameID);
+      aChildsXML := FChilds.FItems[i].Get_JSN;
+      if Length(Trim(aChildsXML)) = 0 then
+      begin
+        aChildsXML := TextTojsoN(aChildsXML,True);
+        aTag := FChilds.Get_Item(i).NodeName;
+      end;
+      Result := #13#10 + GetIndentStr(aXMLIndent) + TextTojsoN(aTag) + ': ' + aChildsXML + ',';
+    end;
+    if rGrandChilds.Count = 1 then
+    begin
+      pTag := FChilds.FItems[i].Get_NodeName;
+      for j:= 0 to rGrandChilds.Count-1 do
+      begin
+        if rGrandChilds[j].NumChildren > 0 then
+        begin
+          aChildsXML := FChilds.FItems[i].Get_JSN;
+          aChildsXML := RemoveTrailingComma(aChildsXML);
+          if FChilds.FItems[i].FIsArrayTag then
+          Result := Result + #13#10 + aChildsXML + #13#10','
+          else
+          Result := Result + #13#10 + TextTojsoN(pTag) + ': {' +aChildsXML + #13#10'},'
+        end
+        else
+        begin
+          aChildsXML := rGrandChilds[j].Get_JSN;
+          if pTag <> DiArrItemTag then
+          begin
+            Result := Result + #13#10 + GetIndentStr(aXMLIndent) + TextTojsoN(pTag) + ': ' + aChildsXML + ',';
+          end
+          else
+            Result := Result + #13#10 + GetIndentStr(aXMLIndent) + aChildsXML + ','
+        end;
+      end;
+    end;
+    if rGrandChilds.Count > 1 then
+    begin
+      aItems := '';
+      pTag := FChilds.Get_Item(i).NodeName;
+      for j:= 0 to rGrandChilds.Count-1 do
+      begin
+        aChildsXML := '';
+        aChildsXML := rGrandChilds[j].Get_JSN;
+        aItems := aItems + GetIndentStr(aXMLIndent) + aChildsXML;
+      end;
+      aItems := RemoveTrailingComma(aItems);
+      if not ((FChilds.Get_Item(i).IsArrayTag) or (pTag = DiArrItemTag)) then
+      begin // OBJ
+        aChildsXML := FChilds.FItems[i].Get_JSN;
+        aChildsXML := RemoveTrailingComma(aChildsXML);
+        Result := Result + #13#10 + GetIndentStr(aXMLIndent) + TextTojsoN(pTag) + ': {' + aChildsXML + #13#10'},';
+      end
+      else
+      if FChilds.Get_Item(i).IsArrayTag then
+      begin // Array
+        aChildsXML := FChilds.FItems[i].Get_JSN;
+        aChildsXML := RemoveTrailingComma(aChildsXML);
+        Result := Result + #13#10 + GetIndentStr(aXMLIndent) + aChildsXML + ',';
+      end
+      else
+      if pTag = DiArrItemTag then
+        Result := Result +  GetIndentStr(aXMLIndent) + #13#10'{'  + aItems + #13#10'},';
+    end;
+  end;
+  if FIsArrayTag then
+  begin
+    Result := RemoveTrailingComma(Result);
+    Result := #13#10 + gpTag + ': [' + Result + #13#10'],';
+  end;
+end;
 function TbjXmlElement.Get_TypedValue: Variant;
 var
   DataNode: TbjXmlDataNode;
@@ -4904,6 +5092,46 @@ begin
       aClone.AppendChild(FChilds.FItems[i].CloneNode(True));
   end;
 end;
+function TbjXmlElement.DoShortenTree(aDeep: Boolean): IbjXml;
+var
+  aClone: TbjXmlElement;
+  rGchild: TbjXmlElement;
+  i,j: Integer;
+  aChilds: TbjXmlNodeList;
+  aNameID: NativeInt;
+  Exists_Item: Boolean;
+  ITemID: NativeInt;
+  pChilds: TbjXmlNodeList;
+begin
+  ITemID := FNames.GetID(DiArrItemTag);
+  aClone := TbjXmlElement.Create(FNames, FNameID);
+  Result := aClone;
+  SetLength(aClone.FAttrs, FAttrCount);
+  aClone.FAttrCount := FAttrCount;
+  for i := 0 to FAttrCount - 1 do
+    aClone.FAttrs[i] := FAttrs[i];
+  if aDeep and Assigned(FChilds) and (FChilds.FCount > 0)
+  then begin
+    for i := 0 to FChilds.FCount - 1 do
+    begin
+      aNameID := FChilds.FItems[i].Get_NodeNameID;
+      aChilds := FChilds.FItems[i].GetChilds;
+      Exists_Item := False;
+      for j := 0 to aChilds.FCount -1 do
+      begin
+        rGchild := TbjXmlElement(aChilds.FItems[j]);
+        if (rGchild.Get_NodeNameID = ItemID) then
+        begin
+          rGchild.SetNodeNameID(aNameID);
+          aClone.AppendChild(rGChild.ShortenTree(True));
+          Exists_Item := True;
+        end;
+      end;
+      if not Exists_Item then
+        aClone.AppendChild(FChilds.FItems[i].ShortenTree(True))
+    end
+  end;
+end;
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 {$IFDEF Regions}{$REGION 'TbjXmlCharacterData Implementation'}{$ENDIF}
 
@@ -4992,6 +5220,10 @@ begin
   Result := TbjXmlText.Create(FNames, FData);
 end;
 
+function TbjXmlText.DoShortenTree(aDeep: Boolean): IbjXml;
+begin
+  Result := TbjXmlText.Create(FNames, FData);
+end;
 function TbjXmlText.Get_NodeNameID: NativeInt;
 begin
   Result := FNames.FXmlTextNameID
@@ -5000,6 +5232,16 @@ end;
 function TbjXmlText.Get_myXML: TmyXmlString;
 begin
   Result := TextToXML(FData);
+end;
+function TbjXmlText.Get_myJSN: TmyXmlString;
+begin
+  Result := TextToJSON(FData, FIsQuoted);
+end;
+constructor TbjXmlText.Create(aNames: TbjXmlNameTable; const aData: TmyXmlString;
+  const aMode:Boolean = True);
+begin
+  inherited Create(aNames, aData);
+  SetQUotedMode(aMode);
 end;
 
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
@@ -5127,6 +5369,17 @@ begin
       aClone.AppendChild(FChilds.FItems[i].CloneNode(True));
 end;
 
+function TbjXml.DoShortenTree(aDeep: Boolean): IbjXml;
+var
+  aClone: TbjXml;
+  i: Integer;
+begin
+  aClone := TbjXml.Create(FNames);
+  Result := aClone;
+  if aDeep and Assigned(FChilds) and (FChilds.FCount > 0) then
+    for i := 0 to FChilds.FCount - 1 do
+      aClone.AppendChild(FChilds.FItems[i].ShortenTree(True));
+end;
 function TbjXml.GetEncoding: TbjXmlString;
 var
   i: Integer;
@@ -5413,12 +5666,9 @@ begin
     if Encoding<>''
     then
       aXml.Codepage := FindCodepage(AnsiString(Encoding));
-    GetChilds.ParseJSN(aXml, FNames, FOnTagBegin, FOnTagEnd, '', False);
-{
     rNode := TbjXmlElement.Create(FNames, FNames.GetmyXMLID('Envelope'));
     GetChilds.Insert(rNode, -1);
-    rNode.GetChilds.ParseJSN(aXml, FNames, FOnTagBegin, FOnTagEnd, FPreserveWhiteSpace, False);
-}
+    rNode.GetChilds.ParseJSN(aXml, FNames, FOnTagBegin, FOnTagEnd, '', False);
   finally
     aXml.Free
   end
@@ -5609,6 +5859,20 @@ begin
   end
 end;
 
+procedure TbjXml.SaveJSONFile(const aFileName: String);
+var
+  rStream: TMemoryStream;
+  rStr: TbjXmlString;
+begin
+  rStream := TMemoryStream.Create;
+  rStr := GetJSON;
+  try
+    rStream.Write(Pointer(rStr)^, Length(rStr));
+    rStream.SaveToFile(aFileName);
+  finally
+    rStream.Free
+  end
+end;
 procedure TbjXml.SaveBinary(aStream: TStream);
 var
   aWriter: TBinXmlWriter;
@@ -5892,6 +6156,14 @@ begin
   Result := AcceptToken;
 end;
 
+function TbjXmlSource.ExpecTbjJSNName: TmyXMLString;
+begin
+  NewToken;
+  AppendTokenChar(CurChar);
+  while Next and NameCanContain4Q(CurChar) do
+    AppendTokenChar(CurChar);
+  Result := AcceptToken;
+end;
 // на входе - первый символ числа
 // на выходе - первый символ, который не является допустимым для чисел
 // read decimal characters until it find the first nondecimal character and
@@ -6076,7 +6348,7 @@ begin
 //      AppendTokenChar(ExpecTbjXmlEntity)
 //  else begin
 //  while Next and NameCanContain4(CurChar) do
-  while Next and NameCanContain3(CurChar) do
+  while Next and NameCanContain4S(CurChar) do
     AppendTokenChar(CurChar);
   if (CurChar = UCS4Char(aQuote)) then
     Next;
@@ -6709,16 +6981,18 @@ function TbjXml.GetChildWithTag(const aName: TbjXmlString): IbjXml;
 var
   i: integer;
   aNode: IbjXml;
-  aChilds: TbjXmlNodeList;
+  aChilds: IbjXmlNodeList;
+  rNameID: NativeInt;
 begin
 //  aChilds := Get_Childs;
-  aChilds := GetChilds;
   Result := nil;
+  aChilds := Get_ChildNodes;
+  rNameID := FNames.GetID(aName);
 // Loop through all subnodes
-  for i := 0 to aChilds.FCount - 1 do
+  for i := 0 to aChilds.Count - 1 do
   begin
     aNode := aChilds.Get_Item(i);
-    if aNode.Tag = aName then
+    if aNode.NodeNameID = rNameID then
     begin
       Result := aNode;
     end;
@@ -6803,13 +7077,28 @@ begin
   Result := Get_XML;
 end;
 
+function TbjXml.GetJSON: TbjXmlString;
+var
+  JLen: Integer;
+begin
+  Result := Get_JSN;
+  Jlen := Length(Result);
+  if Result[Jlen] = ',' then
+    SetLength(Result, JLen-1);
+   if Self = Self.GetOwnerDocument then
+      Result := '{' + Result + #13#10'}';
+end;
+function TbjXml.Get_myJSN: TMyXmlString;
+begin
+  Result := GetChilds.Get_myJSN;
+end;
 
 function TbjXml.SearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString): IbjXml;
 // Find the first node which has name NodeName. Contrary to the NodeByName
 // function, this function will search the whole subnode tree, using the
 // DepthFirst method.
 var
-aNode: IbjXml;
+  aNode:TbjXml;
 isfromroot: boolean;
   aNameID: NativeInt;
 
@@ -6821,9 +7110,9 @@ var
     i: integer;
     aChilds: IbjXmlNodeList;
 begin
+    Result := nil;
     aChilds := aNode.ChildNodes;
   //  aNameID := aNode.NameTable.GetID(aName);
-    Result := nil;
     for i := 0 to aChilds.Count - 1 do
   begin
       aNode := aChilds.Get_Item(i);
@@ -6847,13 +7136,79 @@ begin
     end;
   end;
 begin
-  aNode := IbjXml(self);
-  aNameID := (aNode.GetObject as TbjXml).FNames.GetID(aName);
+  Result := nil;
+  aNode := self;
+//  aNameID := (aNode.GetObject as TbjXml).FNames.GetID(aName);
+  aNameID := FNames.GetID(aName);
   if assigned(fromwhere) then
   isFromRoot := False
   else
   isFromRoot := True;
   Result := SearchNode(aNode, isFromRoot);
+end;
+function TbjXml.BFSearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString): IbjXml;
+var
+  aNode: TbjXml;
+  isfromroot: boolean;
+  aNameID: NativeInt;
+  rIdx: Integer;
+  rChilds: IbjXmlNodeList;
+  CList, GCList: TList;
+  function SearchNode(aNode: IbjXml; var Found: boolean): IbjXml;
+  var
+    i,j,k: integer;
+    aChilds: IbjXmlNodeList;
+  begin
+    Result := nil;
+    if GCList.Count = 0 then
+      Exit;
+    CList.Assign(GCList);
+    GCList.Clear;
+    for i := 0 to CList.Count - 1 do
+    begin
+      aNode := IbjXml(CList[i]);
+      if found then
+      begin
+      if aNode.Get_NodeNameID = aNameID then
+      if  aNode <> fromwhere then
+      begin
+        Result := aNode;
+        exit;
+      end;
+      end
+      else if aNode = fromwhere then
+        found := True;
+    end;
+    for j := 0 to CList.Count - 1 do
+    begin
+      aNode := IbjXml(CList[j]);
+      aChilds := aNode.ChildNodes;
+      for k := 0 to aChilds.Count - 1 do
+        GCList.Add((Pointer(aChilds.Get_Item(k))));
+    end;
+    aNode := SearchNode(aNode, Found);
+    if assigned(aNode) then
+    begin
+      Result := aNode;
+      exit;
+    end;
+  end;
+begin
+  Result := nil;
+  aNode := self;
+  aNameID := FNames.GetID(aName);
+  if assigned(fromwhere) then
+  isFromRoot := False
+  else
+  isFromRoot := True;
+  CList := TList.Create;
+  GCList := TList.Create;
+  rChilds := Get_ChildNodes;
+  for ridx := 0 to rChilds.Count -1 do
+    GCList.Add((Pointer(rChilds.Get_Item(rIdx))));
+  Result := SearchNode(aNode, isFromRoot);
+  CList.Free;
+  GCList.Free;
 end;
 
 function TbjXml.GetNumChildren: integer;
@@ -6887,9 +7242,7 @@ begin
   Result := nil;
   aChilds := GetChilds;
   if achilds.FCount > 0 then
-  begin
       Result :=  aChilds.Get_Item(0);
-  end;
 end;
 
 //To be ested
@@ -6920,18 +7273,22 @@ var
 begin
   Result := nil;
   aNode := IbjXml(self);
+  aNameID := Get_NameTable.GetID(aNode.GetTag);
   aChilds := GetParent.ChildNodes;
   cnt := aChilds.Count - 1;
   for i := 0 to  cnt do
   begin
     TempNode := aChilds.Get_Item(i);
-    if TempNode = aNode then
+    if TempNode.Get_NodeNameID = aNameID then
     begin
+      if i < cnt then
+      begin
         Result := aChilds.Get_Item(i+1);
         exit;
       end;
     end;
   end;
+end;
 
 function TbjXml.GetPrevousSibling: IbjXml;
 var
@@ -6942,33 +7299,39 @@ var
 begin
   Result := nil;
   aNode := IbjXml(self);
+  aNameID := Get_NameTable.GetID(aNode.GetTag);
   aChilds := GetParent.ChildNodes;
   cnt := aChilds.Count - 1;
   for i := 0 to cnt do
   begin
     TempNode := aChilds.Get_Item(i);
-    if TempNode = aNode then
+    if TempNode.Get_NodeNameID = aNameID then
+    begin
+      if i > 0 then
     begin
         Result := aChilds.Get_Item(i-1);
         exit;
       end;
     end;
+  end;
 end;
 
-function TbjXml.Get_ArrayNodes(aName: TbjXmlString; IsIncludeOn: Boolean = True): IbjXmlNodeList;
+function TbjXml.GetArrayNodes(aName: TbjXmlString; IsIncludeOn: Boolean = True): IbjXmlNodeList;
 var
-  aChilds: IbjXmlNodeList;
+  aChilds: TbjXmlNodeList;
   rNode, aNode: IbjXml;
   i: integer;
+  rNameID: NativeInt;
 begin
+  rNameID := FNames.GetID(aName);
   rNode := CreatebjXmlDocument;
-  aChilds := Get_ChildNodes;
-  for i := 0 to aChilds.Count-1 do
+  aChilds := GetChilds;
+  for i := 0 to aChilds.FCount-1 do
   begin
     aNode := aChilds.Get_Item(i);
-    if (aNode.Get_NodeName = aName) and IsIncludeOn then
+    if (aNode.NodeNameID = rNameID) and IsIncludeOn then
       rNode.AppendChild(aNode);
-    if (aNode.Get_NodeName <> aName) and (not IsIncludeOn) then
+    if (aNode.NodeNameID <> rNameID) and (not IsIncludeOn) then
       rNode.AppendChild(aNode);
   end;
   Result := rNode.ChildNodes;
@@ -6984,6 +7347,14 @@ begin
   FIsArrayTag := aType;
 end;
 
+function TbjXml.GetQuotedMode: Boolean;
+begin
+  Result := FIsQuoted;
+end;
+procedure TbjXml.SetQuotedMode(aType: Boolean);
+begin
+  FIsQuoted := aType;
+end;
 procedure TbjXmlNodeList.ParseJSN(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
                                 HookTagBegin, HookTagEnd: THookTag;
                                 aValue: TmyXmlString; aMode: boolean);
@@ -6992,13 +7363,15 @@ procedure TbjXmlNodeList.ParseJSN(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
   function ParseText(aValue: TmyXmlString): TmyXmlString;
   var
     aText: TmyXmlString;
+    rIsQuoted: Boolean;
   begin
     if Length(aValue) <> 0 then
     begin
-      Insert(TbjXmlText.Create(aNames, aValue), -1);
+      Insert(TbjXmlText.Create(aNames, aValue, False), -1);
       aValue := '';
       Exit;
     end;
+    rIsQuoted := False;
     aXml.NewToken;
     while not aXML.EOF and not (aXML.CurChar in
         [UCS4Char('['), UCS4Char(']'),
@@ -7009,6 +7382,7 @@ procedure TbjXmlNodeList.ParseJSN(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
       if aXML.CurChar = UCS4Char('"') then
       begin
         aXml.ParseTo('"');
+        rIsQuoted := True;
         break;
       end;
 
@@ -7019,7 +7393,7 @@ procedure TbjXmlNodeList.ParseJSN(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
       aText := myXMLTrim(aXml.AcceptToken);
 
     if Length(aText) <> 0 then
-      Insert(TbjXmlText.Create(aNames, aText), -1);
+      Insert(TbjXmlText.Create(aNames, aText, rIsQuoted), -1);
     aXml.SkipBlanks;
   end;
 
@@ -7070,7 +7444,19 @@ procedure TbjXmlNodeList.ParseJSN(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
     end;
 
 // Quoted Element
-
+    if aXml.CurChar in [UCS4Char('['), UCS4Char('{') ] then
+    begin
+      aNameID := aNames.GetmyXMLID(DiArrItemTag);
+      aNode := TbjXmlElement.Create(aNames, aNameID);
+      Insert(aNode, -1);
+      aNode.GetParent.ISArrayTag := True;
+      if assigned(HookTagBegin) then
+        HookTagBegin(Self, aNode);
+      aNode.GetChilds.ParseJSN(aXml, aNames, HookTagBegin, HookTagEnd, '', IsArrayMode);
+      if assigned(HookTagEnd) then
+        HookTagEnd(Self, aNode);
+      Exit;
+    end;
     if aXml.CurChar in [UCS4Char('"')] then
     begin
     rName := aXml.ExpectQuotedName('"');
@@ -7093,7 +7479,7 @@ procedure TbjXmlNodeList.ParseJSN(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
       else
       begin
 // Quoted Value
-        aNameID := aNames.GetmyXMLID('_Item');
+      aNameID := aNames.GetmyXMLID(DiArrItemTag);
         aNode := TbjXmlElement.Create(aNames, aNameID);
         Insert(aNode, -1);
       aNode.GetParent.ISArrayTag := True;
@@ -7105,18 +7491,38 @@ procedure TbjXmlNodeList.ParseJSN(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
         Exit;
       end;
     end;
+    aXml.SkipBlanks;
+    rName := aXml.ExpecTbjJSNName;
+    aXml.SkipBlanks;
+    if aXml.EOF then
+      raise Exception.Create(SSimpleXMLError2);
+    if aXml.CurChar in [UCS4Char(':')] then
+    begin
+      aXml.ExpectChar(':');
+      aNameID := aNames.GetmyXMLID(rName);
+      aNode := TbjXmlElement.Create(aNames, aNameID);
+      Insert(aNode, -1);
+      if assigned(HookTagBegin) then
+        HookTagBegin(Self, aNode);
+      aNode.GetChilds.ParseJSN(aXml, aNames, HookTagBegin, HookTagEnd, '', IsArrayMode);
+      if assigned(HookTagEnd) then
+        HookTagEnd(Self, aNode);
+      Exit;
+    end
+    else
 // Unquoted Value
-
-    aNameID := aNames.GetmyXMLID('_Item');
+    begin
+      aNameID := aNames.GetmyXMLID(DiArrItemTag);
     aNode := TbjXmlElement.Create(aNames, aNameID);
     Insert(aNode, -1);
     aNode.GetParent.ISArrayTag := True;
     if assigned(HookTagBegin) then
       HookTagBegin(Self, aNode);
-    aNode.GetChilds.ParseJSN(aXml, aNames, HookTagBegin, HookTagEnd, '', IsArrayMode);
+      aNode.GetChilds.ParseJSN(aXml, aNames, HookTagBegin, HookTagEnd, rName, IsArrayMode);
     if assigned(HookTagEnd) then
       HookTagEnd(Self, aNode);
     Exit;
+    end;
   end;
 
 begin
