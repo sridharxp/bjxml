@@ -2543,6 +2543,7 @@ type
     function ParseTo(const aText: TMyXMLString): TmyXmlString;
     procedure ParseAttrs(aNode: TbjXml);
     function ExpectQuotedName(aQuote: Char): TmyXMLString;
+    function ExpectQuotedName: TmyXMLString;
     procedure ExpectAnyChar(aChars: string);
 
     procedure NewToken;
@@ -6411,14 +6412,18 @@ begin
   Result := AcceptToken;
 end;
 
-function TbjXmlSource.ExpectQuotedName(aQuote: Char): TmyXMLString;
+function TbjXmlSource.ExpectQuotedName: TmyXMLString;
+var
+  iQuote: UCS4Char;
 begin
   NewToken;
-  if (CurChar <> UCS4Char(aQuote)) then
-    Exit;
+  if (CurChar <> UCS4Char('"')) and (CurChar <> UCS4Char(''''))then
+    Exit
+  else
+    iQuote := CurChar;
   while Next and NameCanContain4S(CurChar) do
     AppendTokenChar(CurChar);
-  if (CurChar = UCS4Char(aQuote)) then
+  if (CurChar = iQuote) then
     Next;
   Result := AcceptToken;
 end;
@@ -6436,7 +6441,7 @@ begin
     SkipBlanks;
     if EOF then
       raise Exception.CreateFmt(SSimpleXmlError20, [FSourceLine, FSourceCol]);
-    if (CurChar = UCS4Char('''')) or (CurChar = UCS4Char('"'))
+    if (CurChar = UCS4Char('"')) or (CurChar = UCS4Char(''''))
     then
       aValue := ExpectQuotedText(Char(CurChar))
     else
@@ -7595,6 +7600,12 @@ procedure TbjXmlNodeList.ParseJSN(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
         rIsQuoted := True;
         break;
       end;
+      if aXML.CurChar = UCS4Char('''') then
+      begin
+        aXml.ParseTo('''');
+        rIsQuoted := True;
+        break;
+      end;
 
       aXml.AppendTokenChar(aXML.CurChar);
       aXML.Next;
@@ -7657,9 +7668,9 @@ procedure TbjXmlNodeList.ParseJSN(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
       Exit;
     end;
 //  Quoted Element
-    if aXml.CurChar in [UCS4Char('"')] then
+    if aXml.CurChar in [UCS4Char('"'), UCS4Char('''')] then
     begin
-    rName := aXml.ExpectQuotedName('"');
+    rName := aXml.ExpectQuotedName;
     aXml.SkipBlanks;
     if aXml.EOF then
       raise Exception.Create(SSimpleXMLError2);
