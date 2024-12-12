@@ -658,6 +658,9 @@ type
     procedure QSortByNode(const FrmIdx, ToIdx: Integer);
     function GetChildAttr(const Idx: Integer; const aName: TbjXmlString;
       const aDefault: TbjXmlString = ''): TbjXmlString;
+    procedure AppendXml(const aXml: TbjXmlString);
+    function SearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString): IbjXml;
+    function BFSearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString; var aMaxLevel:Integer): IbjXml;
     property NodeName: TbjXmlString read Get_NodeName;
     property NodeNameID: NativeInt read Get_NodeNameID;
     property NodeType: TbjXmlNodeType read Get_NodeType;
@@ -2542,7 +2545,6 @@ type
     function ExpectHexInteger: Integer;
     function ParseTo(const aText: TMyXMLString): TmyXmlString;
     procedure ParseAttrs(aNode: TbjXml);
-    function ExpectQuotedName(aQuote: Char): TmyXMLString;
     function ExpectQuotedName: TmyXMLString;
     procedure ExpectAnyChar(aChars: string);
 
@@ -2896,12 +2898,16 @@ type
     function GetChildNodes: IbjXmlNodeList; virtual;
     function GetQuotedMode: Boolean; virtual;
     procedure SetQuotedMode(aType: Boolean); virtual;
+
     procedure QSortByAttr(const aAttr: TbjXmlString; FrmIdx, ToIdx: Integer);
     procedure QSortByAttrInt(const aAttr: TbjXmlString; FrmIdx, ToIdx: Integer);
     procedure QSortByContent(const FrmIdx, ToIdx: Integer);
     procedure QSortByNode(const FrmIdx, ToIdx: Integer);
     function GetChildAttr(const Idx: Integer; const aName: TbjXmlString;
       const aDefault: TbjXmlString = ''): TbjXmlString;
+    procedure AppendXml(const aXml: TbjXmlString);
+    function SearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString): IbjXml;
+    function BFSearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString; var aMaxLevel:Integer): IbjXml;
   public
     constructor CreateNode(aNames: TbjXmlNameTable);
     constructor Create(aNames: TbjXmlNameTable=nil);
@@ -3522,6 +3528,22 @@ end;
 procedure TbjXml.AppendChild(const aChild: IbjXml);
 begin
   GetChilds.Insert(aChild.GetObject as TbjXml, -1);
+end;
+
+procedure TbjXml.AppendXml(const aXml: TbjXmlString);
+var
+  rChild: IbjXml;
+begin
+  if Length(aXml) = 0 then
+    Exit;
+  rChild := CreatebjXmlDocument;
+  try
+  Rchild.LoadXml(aXml);
+  AppendChild(rChild);
+  except
+    ShowMessage(axml);
+  end;
+  rChild._Release;
 end;
 
 function TbjXml.Get_AttrCount: Integer;
@@ -5587,7 +5609,7 @@ begin
     aStream.ReadBuffer(Pointer(aBinarySign)^, Length(BinXmlSignature));
     if aBinarySign = BinXmlSignature
     then begin
-      aReader := TStreamXmlReader.Create(aStream, $10000);
+      aReader := TStreamXmlReader.Create(aStream, $1000000);
       try
         FNames.LoadBinXml(aReader);
         LoadBinXml(aReader);
@@ -7268,8 +7290,58 @@ var
 begin
   Result := nil;
   aNode := self;
-//  aNameID := (aNode.GetObject as TbjXml).FNames.GetID(aName);
+  if (Length(aName) = 0) then
+    Exit;
   aNameID := FNames.GetID(aName);
+  if assigned(fromwhere) then
+  isFromRoot := False
+  else
+  isFromRoot := True;
+  Result := SearchNode(aNode, isFromRoot);
+end;
+
+function TbjXml.SearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString): IbjXml;
+var
+  aNode:TbjXml;
+  isfromroot: boolean;
+  rAttrID: NativeInt;
+  function SearchNode(aNode: IbjXml; var Found: boolean): IbjXml;
+  var
+    i: integer;
+    aChilds: IbjXmlNodeList;
+    pAttrValue: TbjXmlString;
+  begin
+    Result := nil;
+    aChilds := aNode.ChildNodes;
+    for i := 0 to aChilds.Count - 1 do
+    begin
+      aNode := aChilds.Get_Item(i);
+      pAttrValue := aNode.GetAttr(rAttrID, '');
+      if found then
+      begin
+        if pAttrValue = aValue then
+        if  aNode <> fromwhere then
+        begin
+          Result := aNode;
+          exit;
+        end;
+      end
+      else if aNode = fromwhere then
+        Found := True;
+      aNode := SearchNode(aNode, Found);
+      if assigned(aNode) then
+      begin
+          Result := aNode;
+          exit;
+      end;
+    end;
+  end;
+begin
+  Result := nil;
+  aNode := self;
+  if (Length(aAttr) = 0) or (Length(aValue) = 0) then
+    Exit;
+  rAttrID := FNames.GetID(aAttr);
   if assigned(fromwhere) then
   isFromRoot := False
   else
@@ -7327,8 +7399,83 @@ var
 begin
   Result := nil;
   aNode := self;
+  if (Length(aName) = 0) then
+    Exit;
   rLastLevel := aMaxLevel;
   aNameID := FNames.GetID(aName);
+  if assigned(fromwhere) then
+  isFromRoot := False
+  else
+  isFromRoot := True;
+  CList := TList.Create;
+  GCList := TList.Create;
+  rChilds := Get_ChildNodes;
+  for ridx := 0 to rChilds.Count -1 do
+    GCList.Add((Pointer(rChilds.Get_Item(rIdx))));
+  Result := SearchNode(aNode, isFromRoot, rLastLevel);
+  if Assigned(Result) then
+  aMaxLevel := aMaxLevel - rLastLevel + 1
+  else
+  aMaxLevel := 0;
+  CList.Free;
+  GCList.Free;
+end;
+function TbjXml.BFSearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString; var aMaxLevel:Integer): IbjXml;
+var
+  aNode: TbjXml;
+  isfromroot: boolean;
+  rAttrID: NativeInt;
+  rIdx: Integer;
+  rChilds: IbjXmlNodeList;
+  CList, GCList: TList;
+  rLastLevel: Integer;
+  function SearchNode(aNode: IbjXml; var Found: boolean; var aLevel: Integer): IbjXml;
+  var
+    i,k: integer;
+    aChilds: IbjXmlNodeList;
+    pAttrValue: TbjXmlString;
+  begin
+    Result := nil;
+    if GCList.Count = 0 then
+      Exit;
+    CList.Assign(GCList);
+    GCList.Clear;
+    for i := 0 to CList.Count - 1 do
+    begin
+      aNode := IbjXml(CList[i]);
+      pAttrValue := aNode.GetAttr(rAttrID, '');
+      if found then
+      begin
+        if pAttrValue = aValue then
+        if  aNode <> fromwhere then
+        begin
+          Result := aNode;
+          exit;
+        end;
+      end
+      else if aNode = fromwhere then
+        found := True;
+      aChilds := aNode.ChildNodes;
+      for k := 0 to aChilds.Count - 1 do
+        GCList.Add((Pointer(aChilds.Get_Item(k))));
+    end;
+    aLevel := aLevel - 1;
+    if aLevel = 0 then
+      Exit;
+    aNode := SearchNode(aNode, Found, aLevel);
+    if assigned(aNode) then
+    begin
+      Result := aNode;
+      exit;
+    end;
+  end;
+begin
+  Result := nil;
+  aNode := self;
+  if (Length(aAttr) = 0) or (Length(aValue) = 0) then
+    Exit;
+  rLastLevel := aMaxLevel;
+  rAttrID := FNames.GetID(aAttr);
   if assigned(fromwhere) then
   isFromRoot := False
   else
