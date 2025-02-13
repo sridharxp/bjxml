@@ -233,6 +233,7 @@ type
   // Base of all interfaces uses in SimpleXML
   IbjXmlBase = interface
     // GetObject - возвращает ссылку на объект, реализующий интерфейс.
+	// GetObject - returns a reference to an object implementing the interface.
     function GetObject: TObject;
   end;
 
@@ -243,9 +244,12 @@ type
   // Used to store Names of tags and attributes.
   IbjXmlNameTable = interface(IbjXmlBase)
     // GetID - возвращает числовой идентификатор указанной строки.
+	// GetID - returns the numeric identifier of the specified row.
     function GetID(const aName: TbjXmlString): NativeInt;
     // GetID - возвращает строку, соответствующую указанному числовому
     // идентификатору.
+	// GetName - returns a string corresponding to the specified numeric 
+	// identifier.
     function GetName(anID: NativeInt): TbjXmlString;
   end;
 
@@ -253,13 +257,18 @@ type
 
   // IbjXmlNodeList - список узлов. Список организован в виде массива.
   // Доступ к элементам списка по индексу
+  // IbjXmlNodeList - list of nodes. The list is organized as an array.
+  // Access to list elements by index
   IbjXmlNodeList = interface(IbjXmlBase)
     // Get_Count - количество узлов в списке
+	// Get_Count - number of nodes in the list
     function Get_Count: Integer;
     // Get_Item - получить узел по индексу
+	// Get_Item - get node by index
     function Get_Item(anIndex: Integer): IbjXml;
     procedure Exchange(Index1, Index2: Integer);
     // Get_XML - возвращает представление элементов списка в формате XML
+	// Get_XML - returns a representation of the list items in XML format
     function Get_XML: TbjXmlString;
     function Get_JSN: TbjXmlString;
 
@@ -666,6 +675,9 @@ type
     function BFSearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString; var aMaxLevel:Integer): IbjXml;
     function StrBuildTag(const aNode: TbjXmlString): TbjXmlString;
     function StrBuildAttr(const aNode, aAttr: TbjXmlString): TbjXmlString;
+    function GetLeaves(aNode: IbjXml; const aStop: TbjXmlString): IbjXml;
+//    function BFFindNodes(const anExpression: TbjXmlString; aMaxLevel: Integer): IbjXmlNodeList;
+//    function GetFontSize: Integer;
     property NodeName: TbjXmlString read Get_NodeName;
     property NodeNameID: NativeInt read Get_NodeNameID;
     property NodeType: TbjXmlNodeType read Get_NodeType;
@@ -2550,7 +2562,9 @@ type
     function ExpectHexInteger: Integer;
     function ParseTo(const aText: TMyXMLString): TmyXmlString;
     procedure ParseAttrs(aNode: TbjXml);
+//    function ExpectQuotedName(aQuote: Char): TmyXMLString;
     function ExpectQuotedName: TmyXMLString;
+//    procedure ExpectAnyChar(aChars: string);
 
     procedure NewToken;
     procedure AppendTokenChar(aChar: UCS4Char);
@@ -2642,12 +2656,16 @@ type
   private
     FParentNode: TbjXml;
     // FNames - таблица имен. Задается извне
+    // FNames - table of names. Set externally
     FNames: TbjXmlNameTable;
     // Количество атрибутов в массиве FAttrs
+    // Number of attributes in the FAttrs array
     FAttrCount: Integer;
     // Массив атрибутов
+    // Array of attributes
     FAttrs: array of TbjXmlAttrData;
     // Список дочерних узлов
+    // List of child nodes
     FChilds: TbjXmlNodeList;
     {$IFDEF ADDebug}
     FDebugId: Integer;
@@ -2687,7 +2705,7 @@ type
     function Get_Text: TbjXmlString;
     procedure Set_Text(const aValue: TbjXmlString);
     function CloneNode(aDeep: Boolean): IbjXml;
-    function ShortenTree(aDeep: Boolean): IbjXml;
+    function ShortenTree(aDeep: Boolean = True): IbjXml;
 
     procedure LoadBinXml(aReader: TBinXmlReader);
     procedure SaveBinXml(aWriter: TBinXmlWriter);
@@ -2916,6 +2934,7 @@ type
     function BFSearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString; var aMaxLevel:Integer): IbjXml;
     function StrBuildTag(const aNode: TbjXmlString): TbjXmlString;
     function StrBuildAttr(const aNode, aAttr: TbjXmlString): TbjXmlString;
+    function GetLeaves(aNode: IbjXml; const aStop: TbjXmlString): IbjXml;
   public
     constructor CreateNode(aNames: TbjXmlNameTable);
     constructor Create(aNames: TbjXmlNameTable=nil);
@@ -4733,7 +4752,7 @@ end;
 { CloneNode and then call ShortenTree}
 function TbjXml.ShortenTree(aDeep: Boolean): IbjXml;
 begin
-  Result := DoShortenTree(aDeep)
+  Result := DoShortenTree(aDeep);
 end;
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 {$IFDEF Regions}{$REGION 'XML Element Implementation'}{$ENDIF}
@@ -7356,7 +7375,7 @@ end;
 function TbjXml.GetNextCousin(aNode: IbjXml): IbjXml;
 var
   rRoot: IbjXml;
-  function SearchFamilyTree(rNode: IbjXml): Ibjxml;
+  function SearchNode(rNode: IbjXml): Ibjxml;
   var
     rCousin: IbjXml;
   begin
@@ -7377,13 +7396,13 @@ var
       Result := nil;
       Exit;
     end;
-    Result := SearchFamilyTree(rNode);
+    Result := SearchNode(rNode);
   end;
 begin
   rRoot := Self;
   if not Assigned(aNode) then
     aNode := Self;
-  Result := SearchFamilyTree(aNode);
+  Result := SearchNode(aNode);
 end;
 
 function TbjXml.SearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString): IbjXml;
@@ -7655,12 +7674,72 @@ begin
   SearchNode(aNode, isFromRoot);
 end;
 
+function TbjXml.GetLeaves(aNode: IbjXml; const aStop: TbjXmlString): IbjXml;
+var
+  rNode: IbjXml;
+  rID: Integer;
+function SearchNode(aNode: IbjXml): IbjXml;
+var
+  i: Integer;
+  rChilds, rGChilds: IbjXmlNodeList;
+  rChild, rGChild, rLChild: IbjXml;
+begin
+  if not Assigned(aNode) then
+    Exit;
+  Result := aNode;
+  rChilds := aNode.GetChildNodes;
+  if rChilds.Count = 0 then
+    Exit;
+  i := 0;
+  while i < rChilds.Count do
+  begin
+    rChild := rChilds.Item[i];
+    if rChild.NodeNameID = rID then
+    begin
+      i := i + 1;
+      Continue;
+    end;
+    if Length(rChild.GetContent) > 0 then
+    begin
+      i := i + 1;
+      Continue;
+    end;
+    if rChild.GetNumChildren = 0 then
+    begin
+      aNode.RemoveChild(rChild);
+      Continue;
+    end;
+    if rChild.GetNumChildren = 1 then
+    begin
+      rGChilds := rChild.GetChildNodes;
+      rGChild := rGChilds.Item[0];
+      aNode.InsertBefore(rGChild, rChild);
+      aNode.RemoveChild(rChild);
+      SearchNode(aNode);
+      Continue;
+    end;
+    if rChild.GetNumChildren > 1 then
+      SearchNode(rChild);
+    i := i + 1;
+  end;
+end;
+begin
+  if not Assigned(aNode) then
+    Exit;
+  rID := FNames.GetID(aStop);
+  rNode := aNode.CloneNode(True);
+  Result := rNode;
+  SearchNode(rNode);
+end;
+
 function TbjXml.GetNumChildren: NativeInt;
 var
-  aChilds: TbjXmlNodeList;
+  rChilds: TbjXmlNodeList;
 begin
-  aChilds := GetChilds;
-  Result := aChilds.FCount;
+  Result := 0;
+  rChilds := GetChilds;
+  if Assigned(rChilds) then
+    Result := rChilds.FCount;
 end;
 
 function TbjXml.GetNumAttr: NativeInt;
