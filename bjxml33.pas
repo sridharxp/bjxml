@@ -652,6 +652,8 @@ type
     function BFSearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString; var aMaxLevel:Integer): IbjXml;
     function SearchForTagID(const fromwhere: IbjXml; const aNameId: NativeInt): IbjXml;
     function SearchForNode(const fromwhere: IbjXml; const aName: TbjXmlString; const ToSkip: Boolean = True): IbjXml;
+    function PruneTag(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
+    function PruneAttr(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
     function Prune(aNode: IbjXml): IbjXml;
     function GetNumChildren: NativeInt;
     function GetNumAttr: NativeInt;
@@ -2944,6 +2946,8 @@ type
     function BFSearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString; var aMaxLevel:Integer): IbjXml;
     function SearchForTagID(const fromwhere: IbjXml; const aNameId: NativeInt): IbjXml;
     function SearchForNode(const fromwhere: IbjXml; const aName: TbjXmlString; const ToSkip: Boolean = True): IbjXml;
+    function PruneTag(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
+    function PruneAttr(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
     function Prune(aNode: IbjXml): IbjXml;
     function GetNumChildren: NativeInt;
     function GetNumAttr: NativeInt;
@@ -7675,6 +7679,93 @@ begin
   CList.Free;
   GCList.Free;
 end;
+
+function TbjXml.PruneTag(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
+var
+  rNode: IbjXml;
+  aNameID: NativeInt;
+
+  function SearchNode(lNode: IbjXml): IbjXml;
+  var
+    i: integer;
+    aChilds: IbjXmlNodeList;
+    cNode: IbjXml;
+  begin
+    Result := nil;
+    aChilds := lNode.ChildNodes;
+    i := 0;
+    while i < lNode.GetNumChildren do
+    begin
+      aChilds := lNode.ChildNodes;
+      cNode := aChilds.Get_Item(i);
+      if cNode.Get_NodeNameID = aNameID then
+      begin
+//        ShowMessage(cNode.Tag + ' Removed');
+        lNode.RemoveChild(cNode);
+        Continue;
+      end;
+      i := i + 1;
+    end;
+    i := 0;
+    aChilds := lNode.ChildNodes;
+    while i < aChilds.Count do
+    begin
+      cNode := aChilds.Get_Item(i);
+      SearchNode(cNode);
+      i := i + 1;
+    end;
+  end;
+begin
+  rNode := aNode;
+  if not Assigned(rNode) then
+    rNode := IbjXml(Self);
+  aNameID := FNames.GetID(aName);
+  rNode := rNode.CloneNode(True);
+  Result := rNode;
+  SearchNode(rNode);
+end;
+
+function TbjXml.PruneAttr(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
+var
+  rNode: IbjXml;
+  aNameID: NativeInt;
+
+  function SearchNode(lNode: IbjXml): IbjXml;
+  var
+    i: integer;
+    aChilds: IbjXmlNodeList;
+    cNode: IbjXml;
+  begin
+    Result := nil;
+    aChilds := lNode.ChildNodes;
+    i := 0;
+    while i < aChilds.Count do
+    begin
+      cNode := aChilds.Get_Item(i);
+//        ShowMessage(cNode.Tag + ' Removed');
+      if cNode.AttrExists(aNameID) then
+        cNode.RemoveAttr(aName);
+      i := i + 1;
+    end;
+    i := 0;
+    aChilds := lNode.ChildNodes;
+    while i < aChilds.Count do
+    begin
+      cNode := aChilds.Get_Item(i);
+      SearchNode(cNode);
+      i := i + 1;
+    end;
+  end;
+begin
+  rNode := aNode;
+  if not Assigned(rNode) then
+    rNode := IbjXml(Self);
+  aNameID := FNames.GetID(aName);
+  rNode := rNode.CloneNode(True);
+  Result := rNode;
+  SearchNode(rNode);
+end;
+
 function TbjXml.Prune(aNode: IbjXml): IbjXml;
 var
   rNode: IbjXml;
@@ -7705,7 +7796,7 @@ var
     end;
   end;
 
-  function RemoveEmptyNodes(kNode: IbjXml): Integer;
+  function RemoveEmpty(kNode: IbjXml): Integer;
   var
     kChilds: IbjXmlNodeList;
     k: Integer;
@@ -7748,7 +7839,7 @@ var
     while i < rCnt do
     begin
 
-      RemoveEmptyNodes(sNode);
+      RemoveEmpty(sNode);
       rcnt := rChilds.Count;
       if i >= rcnt then
         Break;
@@ -7819,7 +7910,7 @@ var
     else
     Result := lNode;
   end;
-  function prunechildren(kNode: IbjXml): Integer;
+  function RemoveEmpty(kNode: IbjXml): Integer;
   var
     kChilds: IbjXmlNodeList;
     k: Integer;
@@ -7857,7 +7948,7 @@ var
     rcnt := rChilds.Count;
     while i < rCnt do
     begin
-      prunechildren(sNode);
+      RemoveEmpty(sNode);
       rcnt := rChilds.Count;
       if i >= rcnt then
         Break;
