@@ -149,7 +149,7 @@ Some Helper Functions like those in Chilkat
 
 uses
   SysUtils, Types, Classes, Windows, Dialogs;
-  
+
 {$IFNDEF fpc}
 {$IF CompilerVersion>=18}{$DEFINE Regions}{$IFEND}
 {$ENDIF}
@@ -255,10 +255,9 @@ type
     function GetID(const aName: TbjXmlString): NativeInt;
     // GetID - возвращает строку, соответствующую указанному числовому
     // идентификатору.
-	// GetName - returns a string corresponding to the specified numeric 
+	// GetName - returns a string corresponding to the specified numeric
 	// identifier.
     function GetName(anID: NativeInt): TbjXmlString;
-    function ISID(const aName: TbjXmlString): NativeInt;
   end;
 
 //  IbjXml = interface;
@@ -292,18 +291,18 @@ type
   // IbjXml - XML ​​tree node
   IbjXml = interface(IbjXmlBase)
     // Get_NameTable - таблица имен, используемая данным узлом
-	// Get_NameTable - the name table used by this node
+    // Get_NameTable - the name table used by this node
     function Get_NameTable: IbjXmlNameTable;
     // Get_NodeName - возвращает название узла. Интерпретация названия узла
     // зависит от его типа
-	// Get_NodeName - returns the name of the node. Interpretation of the node name
+    // Get_NodeName - returns the name of the node. Interpretation of the node name
     // depends on its type
     function Get_NodeName: TbjXmlString;
     // Get_NodeNameID - возвращает код названия узла
-	// Get_NodeNameID - returns the node name code
+    // Get_NodeNameID - returns the node name code
     function Get_NodeNameID: NativeInt;
     // Get_NodeType - возвращает тип узла
-	// Get_NodeType - returns the node type
+    // Get_NodeType - returns the node type
     function Get_NodeType: TbjXmlNodeType;
     // Get_Text - возвращает текст узла
 	// Get_Text - returns the text of the node
@@ -654,6 +653,7 @@ type
     function SearchForNode(const fromwhere: IbjXml; const aName: TbjXmlString; const ToSkip: Boolean = True): IbjXml;
     function PruneTag(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
     function PruneAttr(aNode: IbjXml; const aName: TbjXmlString): IbjXml;
+{ Remove Empty Nodes  }
     function Prune(aNode: IbjXml): IbjXml;
     function GetNumChildren: NativeInt;
     function GetNumAttr: NativeInt;
@@ -685,10 +685,13 @@ type
     function BFSearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString; var aMaxLevel:Integer): IbjXml;
     function StrBuildTag(const aNode: TbjXmlString): TbjXmlString;
     function StrBuildAttr(const aNode, aAttr: TbjXmlString): TbjXmlString;
+{ Only Leaf Nodes }
     function Flatten(aNode: IbjXml): IbjXml;
+{ Needed in Json to Xml }    
     function ShortenXml(aNode: IbjXml): IbjXml;
 //    function BFFindNodes(const anExpression: TbjXmlString; aMaxLevel: Integer): IbjXmlNodeList;
 //    function GetFontSize: Integer;
+    procedure InsertAfter(const aChild, aAfter: IbjXml);
     property NodeName: TbjXmlString read Get_NodeName;
     property NodeNameID: NativeInt read Get_NodeNameID;
     property NodeType: TbjXmlNodeType read Get_NodeType;
@@ -720,6 +723,8 @@ type
 
     property Tag: TbjXmlString read GetTag;
     property Parent: IbjXml read GetParent;
+    property FirstChild: IbjXml read GetFirstChild;
+    property LastChild: IbjXml read GetLastChild;
     property NextSibling: IbjXml read GetNextSibling;
     property PreviousSibling: IbjXml read GetPreviousSibling;
     property OwnerDocument: IbjXml read Get_OwnerDocument;
@@ -2318,6 +2323,7 @@ type
   TbjXmlBase = class(TInterfacedObject, IbjXmlBase)
   protected
     // реализация интерфейса IbjXmlBase
+	// implementation of the IbjXmlBase interface
     function GetObject: TObject;
   public
   end;
@@ -2344,7 +2350,6 @@ type
     function GetmyXMLName(anID: NativeInt): TmyXMLString;
     function GetName(anID: NativeInt): TbjXmlString;
     function GetID(const aName: TbjXmlString): NativeInt;
-    function ISID(const aName: TbjXmlString): NativeInt;
   public
     constructor Create(aHashTableSize: Integer);
     {$IFDEF ADDebug}
@@ -2525,34 +2530,6 @@ function CreatebjNameTable(aHashTableSize: Integer): IbjXmlNameTable;
 begin
   Result := TbjXmlNameTable.Create(aHashTableSize)
 end;
-function TbjXmlNameTable.IsID(const aName: TbjXMLString): NativeInt;
-var
-  i, L: Integer;
-  aHashKey: Cardinal;
-  aHashIndex: Integer;
-  aHashKeyList: ^TCardinalDynArray;
-  NameList: ^TbjXmlStringDynArray;
-  rStr: TmyXMLString;
-begin
-  rStr := XMLStringToMyXMLString(aName);
-  Result := -1;
-  if Length(rStr) <> 0
-  then begin
-    aHashKey := NameHashKey(Pointer(rStr), Length(rStr));
-    aHashIndex := aHashKey mod Cardinal(Length(FHashTable));
-    NameList := @FNames[aHashIndex];
-    aHashKeyList := @FHashTable[aHashIndex];
-    L := Length(aHashKeyList^);
-    for i:=0 to L-1 do
-    begin
-      if (aHashKeyList^[i] = aHashKey) and (NameList^[i] = rStr)
-      then begin
-        Result := NativeInt(Pointer(NameList^[i]));
-        exit;
-      end;
-    end;
-  end;
-end;
 
 type
   TbjXml = class;
@@ -2722,7 +2699,7 @@ type
     FPreserveWhiteSpace: Boolean;
     FIsArrayTag: Boolean;
     FIsQuoted: Boolean;
-    FRestrictNames: Boolean;
+//    FRestrictNames: Boolean;
 
     function GetChilds: TbjXmlNodeList; virtual;
     function FindFirstChild(aNameID: NativeInt): TbjXml;
@@ -2985,6 +2962,7 @@ type
     function StrBuildAttr(const aNode, aAttr: TbjXmlString): TbjXmlString;
     function Flatten(aNode: IbjXml): IbjXml;
     function ShortenXml(aNode: IbjXml): IbjXml;
+    procedure InsertAfter(const aChild, aAfter: IbjXml);
   public
     constructor CreateNode(aNames: TbjXmlNameTable);
     constructor Create(aNames: TbjXmlNameTable=nil);
@@ -2993,7 +2971,7 @@ type
     property PreserveWhiteSpace: Boolean read Get_PreserveWhiteSpace write Set_PreserveWhiteSpace;
     property OnTagBegin: THookTag read Get_OnTagBegin write Set_OnTagBegin;
     property OnTagEnd: THookTag read Get_OnTagEnd write Set_OnTagEnd;
-    property RestrictNames: Boolean write FRestrictNames;
+//    property RestrictNames: Boolean write FRestrictNames;
   end;
 
   TbjXmlDataNode = class;
@@ -3372,6 +3350,8 @@ procedure TbjXmlNodeList.ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
 
   // на входе: первый '--'
   // на выходе: символ после '-->'
+  // input: first '--'
+  // output: character after '-->'
   procedure ParseComment;
   begin
     aXml.ExpectText('--');
@@ -3380,6 +3360,8 @@ procedure TbjXmlNodeList.ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
 
   // на входе: '[CDATA['
   // на выходе: символ после ']]>'
+  // input: '[CDATA['
+  // output: character after ']]>'
   procedure ParseCDATA;
   begin
     aXml.ExpectText('[CDATA[');
@@ -3388,6 +3370,8 @@ procedure TbjXmlNodeList.ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
 
   // на входе: 'DOCTYPE'
   // на выходе: символ после '>'
+  // input: 'DOCTYPE'
+  // output: character after '>'
   procedure ParseDOCTYPE;
   begin
     aXml.ExpectText('DOCTYPE');
@@ -3396,6 +3380,8 @@ procedure TbjXmlNodeList.ParseXML(aXML: TbjXmlSource; aNames: TbjXmlNameTable;
 
   // на входе: 'имя-элемента'
   // на выходе: символ после '>'
+  // input: 'element-name'
+  // output: character after '>'
   procedure ParseElement;
   var
     aNameID: NativeInt;
@@ -3993,6 +3979,18 @@ begin
   GetChilds.Insert(aChild.GetObject as TbjXml, i)
 end;
 
+procedure TbjXml.InsertAfter(const aChild, aAfter: IbjXml);
+var
+  i: Integer;
+  aChilds: TbjXmlNodeList;
+begin
+  aChilds := GetChilds;
+  if Assigned(aAfter) then
+    i := aChilds.IndexOf(aAfter.GetObject as TbjXml) + 1
+  else
+    i := aChilds.FCount;
+  GetChilds.Insert(aChild.GetObject as TbjXml, i)
+end;
 procedure TbjXml.RemoveAllAttrs;
 begin
   FAttrCount := 0;
@@ -4298,6 +4296,9 @@ begin
           // Исключительная ситуация может возникнуть в том случае,
           // если произойдет сбой в функции VarSameValue.
           // Иными словами - если значения нельзя сравнивать.
+		  // An exceptional situation may occur if,
+		  // the VarSameValue function fails.
+		  // In other words, if the values ​​cannot be compared.
         end;
       end
     end;
@@ -4805,11 +4806,13 @@ function TbjXml.CloneNode(aDeep: Boolean): IbjXml;
 begin
   Result := DoCloneNode(aDeep)
 end;
+
 { CloneNode and then call ShortenTree}
 function TbjXml.ShortenTree: IbjXml;
 begin
   Result := DoShortenTree;
 end;
+
 function TbjXml.ShortenXml(aNode: IbjXml): IbjXml;
 var
   rNode: IbjXml;
@@ -4819,6 +4822,7 @@ begin
   rNode := aNode.CloneNode(True);
   Result := rNode.ShortenTree;
 end;
+
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 {$IFDEF Regions}{$REGION 'XML Element Implementation'}{$ENDIF}
 { TbjXmlElement }
@@ -5277,6 +5281,7 @@ begin
       aClone.AppendChild(FChilds.FItems[i].CloneNode(True));
   end;
 end;
+
 function TbjXmlElement.DoShortenTree: IbjXml;
 var
   aClone: TbjXmlElement;
@@ -5319,6 +5324,7 @@ begin
     end
   end;
 end;
+
 {$IFDEF Regions}{$ENDREGION}{$ENDIF}
 {$IFDEF Regions}{$REGION 'TbjXmlCharacterData Implementation'}{$ENDIF}
 
@@ -6391,6 +6397,9 @@ end;
 // на входе - первый символ числа
 // на выходе - первый символ, который не является допустимым для
 // щестнадцатиричных чисел
+// input - first character of number
+// output - first character that is not valid for
+// hexadecimal numbers
 function TbjXmlSource.ExpectHexInteger: Integer;
 var
   DigitFound: Boolean;
@@ -7399,6 +7408,7 @@ begin
   aNameID := FNames.GetID(aName);
   Result := SearchForTagID(fromwhere, aNameID);
 end;
+
 function TbjXml.SearchForNode(const fromwhere: IbjXml; const aName: TbjXmlString; const ToSkip: Boolean): IbjXml;
 var
   rRoot:IbjXml;
@@ -7411,6 +7421,7 @@ begin
     Exit;
   aNameID := FNames.GetID(aName);
   rNode := fromwhere;
+
   if ToSkip then
   if Assigned(rNode) then
   if FNames.GetID(rNode.NodeName)= aNameID then
@@ -7426,6 +7437,7 @@ begin
     if not Assigned(rNode) then
       Exit;
   end;
+
   if not Assigned(fromWhere) then
     rNode := Self;
   rRoot := rNode;
@@ -7449,6 +7461,7 @@ begin
       Exit;
   end;
 end;
+
 function TbjXml.GetNextCousin(aNode: IbjXml): IbjXml;
 var
   rRoot: IbjXml;
@@ -7530,6 +7543,7 @@ begin
   isFromRoot := True;
   Result := SearchNode(aNode, isFromRoot);
 end;
+
 function TbjXml.BFSearchForTag(const fromwhere: IbjXml; const aName: TbjXmlString; var aMaxLevel:Integer): IbjXml;
 var
   aNode: TbjXml;
@@ -7606,6 +7620,7 @@ begin
   CList.Free;
   GCList.Free;
 end;
+
 function TbjXml.BFSearchForAttr(const fromwhere: IbjXml; const aAttr, aValue: TbjXmlString; var aMaxLevel:Integer): IbjXml;
 var
   aNode: TbjXml;
@@ -7615,6 +7630,7 @@ var
   rChilds: IbjXmlNodeList;
   CList, GCList: TList;
   rLastLevel: Integer;
+
   function SearchNode(aNode: IbjXml; var Found: boolean; var aLevel: Integer): IbjXml;
   var
     i,k: integer;
@@ -7772,6 +7788,97 @@ var
 
   function SupercedeMe(lNode: IbjXml): IbjXml;
   var
+    mNode: IbjXml;
+    lOnce: Boolean;
+  begin
+    if lNode = aNode then
+      Exit;
+    lOnce := False;
+    Result := lNode;
+    if (Length(lNode.Content) > 0) then
+      Exit;
+    mNode := LNode.Parent;
+    if not Assigned(mNode) then
+      Exit;
+
+    if (Length(lNode.Content) =  0) and (lNode.NumChildren = 0) then
+    begin
+      mNode.RemoveChild(lNode);
+      Result := mNode;
+      Exit;
+    end;
+  end;
+
+  function RemoveEmpty(kNode: IbjXml): Integer;
+  var
+    kChilds: IbjXmlNodeList;
+    k: Integer;
+    kChild: IbjXml;
+  begin
+    Result := 0;
+    if not Assigned(kNode) then
+      Exit;
+    kChilds := kNode.GetChildNodes;
+    if kChilds.Count > 0 then
+    for k := kChilds.Count-1 downto 0 do
+    begin
+      kChild := kChilds.Item[k];
+      if (Length(kChild.GetContent) = 0) and  (kChild.GetNumChildren = 0)then
+      begin
+        kNode.RemoveChild(kChild);
+        Result := Result + 1;
+      end;
+    end;
+  end;
+
+  function SearchNode(sNode: IbjXml): IbjXml;
+  var
+    i: Integer;
+    rChilds: IbjXmlNodeList;
+    rChild: IbjXml;
+    rOnce: Boolean;
+    rcnt: Integer;
+  begin
+    if not Assigned(sNode) then
+      Exit;
+    Result := sNode;
+
+    rChilds := sNode.GetChildNodes;
+    i := 0;
+    rcnt := rChilds.Count;
+    while i < rCnt do
+    begin
+      RemoveEmpty(sNode);
+      rcnt := rChilds.Count;
+      if i >= rcnt then
+        Break;
+
+      rOnce := False;
+      rChild := rChilds.Item[i];
+      SearchNode(rChild);
+      i := i + 1;
+    end;
+    if sNode <> aNode then
+    begin
+      sNode := SupercedeMe(sNode);
+      sNode := sNode.GetNextSibling;
+      SearchNode(sNode);
+    end;
+  end;
+begin
+  if not Assigned(aNode) then
+    aNode := IbjXml(Self);
+  rNode := aNode.CloneNode(True);
+  Result := rNode;
+  SearchNode(rNode);
+end;
+
+function TbjXml.Flatten(aNode: IbjXml): IbjXml;
+var
+  rNode: IbjXml;
+
+  function PromoteOverMe(lNode: IbjXml): IbjXml;
+  var
     mNode, lChild: IbjXml;
     lChilds: IbjXmlNodeList;
     l: Integer;
@@ -7794,6 +7901,27 @@ var
       Result := mNode;
       Exit;
     end;
+
+    lChilds := lNode.GetChildNodes;
+    if lNode.GetNumChildren > 0 then
+      Result := lChilds.Item[0]
+    else
+      Result := mNode;
+    for l := 0 to lChilds.Count-1 do
+    begin
+      lChild := lChilds.Item[l];
+      if lChild.NumChildren > 0 then
+      begin
+      mNode.InsertBefore(lChild, lNOde);
+      lOnce := True;
+      end
+    end;
+    if lOnce then
+    begin
+    mNode.RemoveChild(lNode);
+    end
+    else
+    Result := lNode;
   end;
 
   function RemoveEmpty(kNode: IbjXml): Integer;
@@ -7823,9 +7951,8 @@ var
   var
     i,j: Integer;
     rChilds, rGChilds: IbjXmlNodeList;
-    pNode, rChild, rGChild, rLChild: IbjXml;
+    rChild, rGChild, rLChild: IbjXml;
     rOnce: Boolean;
-    rPruned: Integer;
     rcnt: Integer;
   begin
     if not Assigned(sNode) then
@@ -7846,114 +7973,7 @@ var
 
       rOnce := False;
       rChild := rChilds.Item[i];
-      SearchNode(rChild);
-      i := i + 1;
-    end;
-    if sNode <> aNode then
-    begin
-      sNode := SupercedeMe(sNode);
-      sNode := sNode.GetNextSibling;
-      SearchNode(sNode);
-    end;
-  end;
-begin
-  if not Assigned(aNode) then
-    aNode := IbjXml(Self);
-  rNode := aNode.CloneNode(True);
-  Result := rNode;
-  SearchNode(rNode);
-end;
 
-function TbjXml.Flatten(aNode: IbjXml): IbjXml;
-var
-  rNode: IbjXml;
-  function PromoteOverMe(lNode: IbjXml): IbjXml;
-  var
-    mNode, lChild: IbjXml;
-    lChilds: IbjXmlNodeList;
-    l: Integer;
-    lOnce: Boolean;
-  begin
-    if lNode = aNode then
-      Exit;
-    lOnce := False;
-    Result := lNode;
-    if (Length(lNode.Content) > 0) then
-      Exit;
-    mNode := LNode.Parent;
-    if not Assigned(mNode) then
-      Exit;
-    if (Length(lNode.Content) =  0) and (lNode.NumChildren = 0) then
-    begin
-      mNode.RemoveChild(lNode);
-      Result := mNode;
-      Exit;
-    end;
-    lChilds := lNode.GetChildNodes;
-    if lNode.GetNumChildren > 0 then
-      Result := lChilds.Item[0]
-    else
-      Result := mNode;
-    for l := 0 to lChilds.Count-1 do
-    begin
-      lChild := lChilds.Item[l];
-      if lChild.NumChildren > 0 then
-      begin
-      mNode.InsertBefore(lChild, lNOde);
-      lOnce := True;
-      end
-    end;
-    if lOnce then
-    begin
-    mNode.RemoveChild(lNode);
-    end
-    else
-    Result := lNode;
-  end;
-  function RemoveEmpty(kNode: IbjXml): Integer;
-  var
-    kChilds: IbjXmlNodeList;
-    k: Integer;
-    kChild: IbjXml;
-  begin
-    Result := 0;
-    if not Assigned(kNode) then
-      Exit;
-    kChilds := kNode.GetChildNodes;
-    if kChilds.Count > 0 then
-    for k := kChilds.Count-1 downto 0 do
-    begin
-      kChild := kChilds.Item[k];
-      if (Length(kChild.GetContent) = 0) and  (kChild.GetNumChildren = 0)then
-      begin
-        kNode.RemoveChild(kChild);
-        Result := Result + 1;
-      end;
-    end;
-  end;
-  function SearchNode(sNode: IbjXml): IbjXml;
-  var
-    i,j: Integer;
-    rChilds, rGChilds: IbjXmlNodeList;
-    pNode, rChild, rGChild, rLChild: IbjXml;
-    rOnce: Boolean;
-    rPruned: Integer;
-    rcnt: Integer;
-  begin
-    if not Assigned(sNode) then
-      Exit;
-    Result := sNode;
-    rChilds := sNode.GetChildNodes;
-    i := 0;
-    rcnt := rChilds.Count;
-    while i < rCnt do
-    begin
-      RemoveEmpty(sNode);
-      rcnt := rChilds.Count;
-      if i >= rcnt then
-        Break;
-      rOnce := False;
-      rChild := rChilds.Item[i];
       if (Length(rChild.GetContent) = 0) and (rChild.GetNumChildren > 0) then
       begin
         rGChilds := rChild.GetChildNodes;
@@ -8024,27 +8044,25 @@ end;
 
 function TbjXml.GetFirstChild: IbjXml;
 var
-  aChilds: TbjXmlNodeList;
+  aChilds: IbjXmlNodeList;
 begin
   Result := nil;
   aChilds := GetChilds;
-  if achilds.FCount > 0 then
+  if aChilds.Get_Count > 0 then
       Result :=  aChilds.Get_Item(0);
 end;
 
 function TbjXml.GetLastChild: IbjXml;
 var
-  aChilds: TbjXmlNodeList;
-  cnt: integer;
+  aChilds: IbjXmlNodeList;
+  rcnt: integer;
 begin
   Result := nil;
   aChilds := GetChilds;
-  cnt := achilds.FCount;
-  if cnt > 0 then
-  begin
-      Result :=  aChilds.Get_Item(cnt-1);
+  rcnt := achilds.Get_count;
+  if rcnt > 0 then
+      Result :=  aChilds.Get_Item(rcnt-1);
   end;
-end;
 
 function TbjXml.GetNextSibling: IbjXml;
 var
@@ -8059,7 +8077,7 @@ begin
   if not Assigned(pNode) then
     Exit;
   aChilds := pNode.GetChildNodes;
-  cnt := aChilds.Count - 1;
+  cnt := aChilds.Get_Count - 1;
   for i := 0 to cnt do
   begin
     TempNode := aChilds.Get_Item(i);
@@ -8123,7 +8141,7 @@ begin
   if not Assigned(pNode) then
     Exit;
   aChilds := pNode.GetChildNodes;
-  cnt := aChilds.Count - 1;
+  cnt := aChilds.Get_Count - 1;
   for i := 0 to cnt do
   begin
     TempNode := aChilds.Get_Item(i);
